@@ -10,7 +10,7 @@ path_arquivo = 'base'
 nome_arquivo_acao = 'USIM5.csv'
 arquivo_acao = helper.path_join(path_arquivo, nome_arquivo_acao)
 
-tamanho_janela = 50
+exibe_ultimos_registros = 50
 
 fig = plt.figure(figsize=(16, 8))
 fig.canvas.set_window_title('Acompanhamento valor Ação')
@@ -63,6 +63,12 @@ def salva_valor_acao(arquivo_acao, valor_acao):
 
     helper.save_list_to_file(arquivo_acao, lista_registro_acao, mode='w')
 
+def obtem_lista_registro_acao(arquivo_acao):
+    lista_registro_acao = []
+    if helper.file_exists(arquivo_acao):
+        lista_registro_acao = helper.read_file(arquivo_acao)
+
+    return lista_registro_acao
 
 def verifica_horario_execucao():
     horaInicio = 9
@@ -73,58 +79,29 @@ def verifica_horario_execucao():
     return hora_atual >= horaInicio and hora_atual <= horaFim
 
 
-def plota(arquivo_acao):
 
-
-    #if helper.file_exists(arquivo_acao):
-    lista_registro_acao = helper.read_file(arquivo_acao)
-    lista_registro_acao = lista_registro_acao[-tamanho_janela:]
-    valores_acao = [valor.split(';')[0] for valor in lista_registro_acao]
-    horario_acao = [valor.split(';')[1] for valor in lista_registro_acao]
+def plota_grafico_acao(valor, horario):
 
     ax.clear()
     #ax.set(xlabel='time (s)', ylabel='USIM5', title='Acompanhamento valor Ação')
-    ax.plot(horario_acao, valores_acao)
+    ax.plot(horario, valor)
 
     plt.xticks(rotation=90)
-
     plt.pause(5)
-
-    #print('Plota Grafico')
-
-
-
-def Bollinger_Bands(bid, ask, janela, desvio):
-    if len(bid) > janela:
-        media = bid.rolling(window=janela).mean()
-        rolling_std = bid.rolling(window=janela).std()
-        upper_band = media + (rolling_std * desvio)
-        lower_band = media - (rolling_std * desvio)
-
-        porcentagem = spread(bid[-1:], ask[-1:])
-        diferenca = ask[-1:] - bid[-1:]
-        print(diferenca)
-        ax.text(len(ask) + (len(ask) / 10), bid[-1:] + (diferenca / 2),
-                "Spread " + str(np.around(float(porcentagem), 3)) + "%")
-
-        ax.plot(upper_band, '--', color="green", alpha=.5)
-        ax.plot(lower_band, '--', color="red", alpha=.5)
-
-        ax.scatter(len(ask), upper_band[-1:], color="green", alpha=.1)
-        ax.scatter(len(ask), lower_band[-1:], color="green", alpha=.1)
-        return lower_band, upper_band
-
-
-    else:
-        print("Sem dados suficientes para criar faixas de Bollinger")
-
 
 while True:
 
-    ultimo_valor = obtem_ultimo_valor_acao()
-    salva_valor_acao(arquivo_acao, ultimo_valor)
+    #ultimo_valor = obtem_ultimo_valor_acao()
+    #salva_valor_acao(arquivo_acao, ultimo_valor)
 
-    plota(arquivo_acao)
+    lista_registro_acao = obtem_lista_registro_acao(arquivo_acao)
+
+    lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
+
+    valores_acao = [valor.split(';')[0] for valor in lista_registro_acao]
+    horario_acao = [valor.split(';')[1] for valor in lista_registro_acao]
+
+    plota_grafico_acao(valores_acao, horario_acao)
 
     print('Sucesso.', helper.get_current_date_hour_str())
 
