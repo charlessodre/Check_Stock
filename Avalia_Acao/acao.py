@@ -11,6 +11,10 @@ nome_arquivo_acao = 'USIM5.csv'
 arquivo_acao = helper.path_join(path_arquivo, nome_arquivo_acao)
 
 exibe_ultimos_registros = 50
+janela = 20
+desvio = 2
+valor_alvo_compra = 7.6
+valor_alvo_venda = 7.3
 
 fig = plt.figure(figsize=(16, 8))
 fig.canvas.set_window_title('Acompanhamento valor Ação')
@@ -51,14 +55,13 @@ def obtem_ultimo_valor_acao():
 
     return valor_acao
 
-
 def salva_valor_acao(arquivo_acao, valor_acao):
     lista_registro_acao = []
 
     if helper.file_exists(arquivo_acao):
         lista_registro_acao = helper.read_file(arquivo_acao)
 
-    registro_acao = '{};{}'.format(valor_acao, helper.get_current_hour())
+    registro_acao = '{};{};{}'.format(valor_acao,helper.get_current_date_str() , helper.get_current_hour())
     lista_registro_acao.append(registro_acao)
 
     helper.save_list_to_file(arquivo_acao, lista_registro_acao, mode='w')
@@ -79,7 +82,6 @@ def verifica_horario_execucao():
     return hora_atual >= horaInicio and hora_atual <= horaFim
 
 
-
 def plota_grafico_acao(valor, horario):
 
     ax.clear()
@@ -87,24 +89,55 @@ def plota_grafico_acao(valor, horario):
     ax.plot(horario, valor)
 
     plt.xticks(rotation=90)
-    plt.pause(5)
+    Bollinger_Bands(valor, janela, desvio)
+
+
+def Bollinger_Bands(lista_acoes, janela, desvio):
+
+    if len(lista_acoes) > janela:
+        media = lista_acoes.rolling(window=janela).mean()
+        rolling_std = lista_acoes.rolling(window=janela).std()
+
+        upper_band = media + (rolling_std * desvio)
+        lower_band = media - (rolling_std * desvio)
+
+        ax.plot(upper_band, '--', color="green", alpha=.5)
+        ax.plot(lower_band, '--', color="red", alpha=.5)
+
+        #ax.scatter(len(ask), upper_band[-1:], color="green", alpha=.1)
+        #ax.scatter(len(ask), lower_band[-1:], color="green", alpha=.1)
+        return lower_band, upper_band
+
+
+def plota_linha_grafico(tamanho_lista, valor, cor):
+    lim = np.empty(tamanho_lista)
+    lim.fill(valor)
+    ax.plot(lim, '*', color=cor, alpha=.5)
 
 while True:
 
-    #ultimo_valor = obtem_ultimo_valor_acao()
-    #salva_valor_acao(arquivo_acao, ultimo_valor)
+    ultimo_valor = obtem_ultimo_valor_acao()
+    salva_valor_acao(arquivo_acao, ultimo_valor)
 
-    lista_registro_acao = obtem_lista_registro_acao(arquivo_acao)
+    df = pd.read_csv(arquivo_acao, sep=';', names=['Ação', 'Data',  'Horário'], nrows=50)
 
-    lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
+    #lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
 
-    valores_acao = [valor.split(';')[0] for valor in lista_registro_acao]
-    horario_acao = [valor.split(';')[1] for valor in lista_registro_acao]
+    #valores_acao = [float(valor.split(';')[0]) for valor in lista_registro_acao]
+    #horario_acao = [horario.split(';')[1] for horario in lista_registro_acao]
+
+    #valores_acao = np.array(valores_acao)
+
+    valores_acao = df['Ação']
+    data_acao = df['Data']
+    horario_acao = df['Horário']
 
     plota_grafico_acao(valores_acao, horario_acao)
+    plota_linha_grafico(len(valores_acao), valor_alvo_compra, 'blue')
+    plota_linha_grafico(len(valores_acao), valor_alvo_venda, 'pink')
 
     print('Sucesso.', helper.get_current_date_hour_str())
-
+    plt.pause(2)
     helper.set_sleep(20)
 
 
