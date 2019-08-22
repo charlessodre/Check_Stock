@@ -7,11 +7,15 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 import helper
 
-path_arquivo = 'base'
-nome_arquivo_acao = 'USIM5.csv'
-arquivo_acao = helper.path_join(path_arquivo, nome_arquivo_acao)
-
 exibe_ultimos_registros = 50
+
+file_path = 'base'
+file_stock_name = 'USIM5.csv'
+file_stock = helper.path_join(file_path, file_stock_name)
+
+begin_hour = 9
+end_hour = 17
+
 window = 20
 deviation = 2
 target_price_buy = 7.6
@@ -20,7 +24,7 @@ target_price_sell = 7.3
 fig = plt.figure(figsize=(16, 8))
 fig.canvas.set_window_title('Acompanhamento value Ação')
 fig.suptitle('USIM5')
-ax = fig.gca()
+axes = fig.gca()
 
 
 def get_last_stock_price_ADVN():
@@ -61,7 +65,7 @@ def save_stock_price(stock_file, price):
 
 
 def check_execution_hour(begin, end):
-    current_hour = int(helper.get_hour())
+    current_hour = int(helper.get_hour_str())
 
     return begin <= current_hour <= end
 
@@ -77,9 +81,9 @@ def plot_main_chart(ax, stock_list, time, window):
     y_axis_last = stock_list[-2:-1].max()
 
     if y_axis_current >= y_axis_last:
-        ax.text(x_axis_current, y_axis_current, y_axis_current, bbox=dict(facecolor='green', alpha=0.5))
+        ax.text(x_axis_current, y_axis_current, y_axis_current, fontsize=8, bbox=dict(facecolor='green', alpha=0.3))
     else:
-        ax.text(x_axis_current, y_axis_current, y_axis_current, bbox=dict(facecolor='red', alpha=0.5))
+        ax.text(x_axis_current, y_axis_current, y_axis_current, fontsize=8, bbox=dict(facecolor='red', alpha=0.3))
 
     ax.plot(time, stock_list)
 
@@ -112,39 +116,44 @@ def detect_cross_line_chart(stock_list, target_value):
 
 
 def plot_max_min_price_chart(ax, min, max, average):
-    text = "Prices\nMax: {}\nMin:  {}\nAvg: {}".format(max, min, round(average, 2))
+    text = "Summary\nMax: {}\nMin:  {}\nAvg:  {}".format(max, min, round(average, 2))
+
     add_anchored_text_chart(ax, text, loc=1)
 
 
-def add_anchored_text_chart(ax, t, loc=2):
+def add_anchored_text_chart(ax, text, loc=2):
     fp = dict(size=9)
-    at = AnchoredText(t, loc=loc, prop=fp)
+    at = AnchoredText(text, loc=loc, prop=fp)
+    at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
     ax.add_artist(at)
     return at
 
 
 while True:
-    last_price = get_last_stock_price_ADVN()
-    save_stock_price(arquivo_acao, last_price)
 
-    df = pd.read_csv(arquivo_acao, sep=';', names=['Stock', 'Date', 'Time'])
+    if check_execution_hour(begin_hour, end_hour):
+        print('Getting...')
+        last_price = get_last_stock_price_ADVN()
+        save_stock_price(file_stock, last_price)
 
-    stock_prices = df['Stock']
-    stock_date = df['Date']
-    stock_time = df['Time']
+        df = pd.read_csv(file_stock, sep=';', names=['Stock', 'Date', 'Time'])
 
-    plot_main_chart(ax, stock_prices, stock_time, window)
-    plot_bollinger_bands_chart(ax, stock_prices, window, deviation)
-    plot_line_chart(ax, len(stock_prices), target_price_buy, 'blue', '.', )
-    plot_line_chart(ax, len(stock_prices), target_price_sell, 'pink', '.', )
+        stock_prices = df['Stock']
+        stock_date = df['Date']
+        stock_time = df['Time']
 
-    plot_max_min_price_chart(ax, stock_prices.min(), stock_prices.max(), stock_prices.mean())
+        plot_main_chart(axes, stock_prices, stock_time, window)
+        plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
+        plot_line_chart(axes, len(stock_prices), target_price_buy, 'blue', '.', )
+        plot_line_chart(axes, len(stock_prices), target_price_sell, 'pink', '.', )
 
-    # detect_cross_line_chart(stock_prices, target_price_sell)
+        plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
 
-    print('Sucesss.', helper.get_current_date_hour_str())
-    plt.pause(2)
-    helper.set_sleep(18)
+        # detect_cross_line_chart(stock_prices, target_price_sell)
+
+        print('Sucesss.', helper.get_current_date_hour_str())
+        plt.pause(2)
+        helper.set_sleep(18)
 
     # lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
     # stock_prices = [float(value.split(';')[0]) for value in lista_registro_acao]
