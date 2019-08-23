@@ -85,12 +85,37 @@ def plot_main_chart(ax, stock_list, time, window):
     else:
         ax.text(x_axis_current, y_axis_current, y_axis_current, fontsize=8, bbox=dict(facecolor='red', alpha=0.3))
 
-    ax.plot(time, stock_list)
+    ax.plot(time, stock_list, label='Stock Price')
 
     plt.xticks(rotation=90)
 
 
-def plot_bollinger_bands_chart(ax, stock_list, window, deviation):
+# def plot_bollinger_bands_chart(ax, stock_list, window, deviation):
+#     if len(stock_list) > window:
+#         media = stock_list.rolling(window=window).mean()
+#         rolling_std = stock_list.rolling(window=window).std()
+#
+#         upper_band = media + (rolling_std * deviation)
+#         lower_band = media - (rolling_std * deviation)
+#
+#         ax.plot(upper_band, '--', color="green", alpha=.5, label='BB Up')
+#         ax.plot(lower_band, '--', color="red", alpha=.5, label='BB Down')
+#
+#         return lower_band, upper_band
+
+
+def plot_bollinger_bands_chart(ax, upper_band, lower_band):
+    ax.plot(upper_band, '--', color="green", alpha=.5, label='BB Up')
+    ax.plot(lower_band, '--', color="red", alpha=.5, label='BB Down')
+
+
+def plot_line_chart(ax, list_size, value, color_name, marker="*", legend=None, alpha=0.5):
+    lim = np.empty(list_size)
+    lim.fill(value)
+    ax.plot(lim, marker, color=color_name, alpha=alpha, label=legend)
+
+
+def calc_bollinger_bands_chart(ax, stock_list, window, deviation):
     if len(stock_list) > window:
         media = stock_list.rolling(window=window).mean()
         rolling_std = stock_list.rolling(window=window).std()
@@ -98,19 +123,25 @@ def plot_bollinger_bands_chart(ax, stock_list, window, deviation):
         upper_band = media + (rolling_std * deviation)
         lower_band = media - (rolling_std * deviation)
 
-        ax.plot(upper_band, '--', color="green", alpha=.5)
-        ax.plot(lower_band, '--', color="red", alpha=.5)
-
-        return lower_band, upper_band
+    return lower_band, upper_band
 
 
-def plot_line_chart(ax, list_size, value, color_name, marker="*"):
-    lim = np.empty(list_size)
-    lim.fill(value)
-    ax.plot(lim, marker, color=color_name, alpha=.5)
+def detect_cross_bollinger_bands(stock_list, lower_bands, upper_bands):
+    current_price = stock_list[-1:]
+    current_lower_band = lower_bands[-1:]
+    current_upper_band = upper_bands[-1:]
+    last_price = stock_list[-1:-2]
+    last_lower_band = lower_bands[-1:-2]
+    last_upper_band = upper_bands[-1:-2]
 
+    if current_price > current_lower_band and last_price <= last_lower_band:
+        print('Buy')
 
-def detect_cross_line_chart(stock_list, target_value):
+    elif current_price < current_upper_band and last_price >= last_upper_band:
+        print('Sell')
+    else:
+        print('Hold')
+
     # ax.scatter(stock_list, stock_list, marker='^', color='green')
     return None
 
@@ -118,7 +149,7 @@ def detect_cross_line_chart(stock_list, target_value):
 def plot_max_min_price_chart(ax, min, max, average):
     text = "Summary\nMax: {}\nMin:  {}\nAvg:  {}".format(max, min, round(average, 2))
 
-    add_anchored_text_chart(ax, text, loc=1)
+    add_anchored_text_chart(ax, text, loc=2)
 
 
 def add_anchored_text_chart(ax, text, loc=2):
@@ -132,6 +163,11 @@ def add_anchored_text_chart(ax, text, loc=2):
 while True:
 
     if check_execution_hour(begin_hour, end_hour):
+        list_cross_bb_upper = []
+        list_cross_bb_lower = []
+
+        # plt.ioff()
+
         print('Getting...')
         last_price = get_last_stock_price_ADVN()
         save_stock_price(file_stock, last_price)
@@ -143,16 +179,28 @@ while True:
         stock_time = df['Time']
 
         plot_main_chart(axes, stock_prices, stock_time, window)
-        plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
-        plot_line_chart(axes, len(stock_prices), target_price_buy, 'blue', '.', )
-        plot_line_chart(axes, len(stock_prices), target_price_sell, 'pink', '.', )
+
+        #lower_band, upper_band = plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
+        lower_band, upper_band = calc_bollinger_bands_chart(axes, stock_prices, window, deviation)
+
+        list_cross_bb_upper.append(upper_band)
+        list_cross_bb_lower.append(lower_band)
+
+        plot_bollinger_bands_chart(axes, lower_band, upper_band)
+
+
+        plot_line_chart(axes, len(stock_prices), target_price_buy, 'blue', '.', 'Target Buy')
+        plot_line_chart(axes, len(stock_prices), target_price_sell, 'pink', '.', 'Target Sell')
 
         plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
 
-        # detect_cross_line_chart(stock_prices, target_price_sell)
+        #detect_cross_bollinger_bands(stock_prices, lower_band, upper_band)
 
         print('Sucesss.', helper.get_current_date_hour_str())
-        plt.pause(2)
+
+        plt.legend(loc='best')
+        plt.show()
+
         helper.set_sleep(18)
 
     # lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
