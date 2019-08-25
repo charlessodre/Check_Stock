@@ -281,9 +281,18 @@ def get_hour_str():
     return time.strftime("%H")
 
 
+def get_current_number_weekday():
+    """
+    Get number of current number weekday  [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
+    :return: Return current number weekday  [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
+    """
+    return int(time.strftime("%w"))
+
 def set_sleep(seconds):
     """
     Wait some seconds
     :param seconds:
     """
     time.sleep(seconds)
+
+

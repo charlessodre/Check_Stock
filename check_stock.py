@@ -13,8 +13,9 @@ file_path = 'base'
 file_stock_name = 'USIM5.csv'
 file_stock = helper.path_join(file_path, file_stock_name)
 
-begin_hour = 9
-end_hour = 17
+weekdays_execution = [1, 2, 3, 4, 5]  # [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
+begin_hour_execution = 9
+end_hour_execution = 17
 
 window = 20
 deviation = 2
@@ -68,6 +69,12 @@ def check_execution_hour(begin, end):
     current_hour = int(helper.get_hour_str())
 
     return begin <= current_hour <= end
+
+
+def check_execution_day(weekdays):
+    current_num_day = helper.get_current_number_weekday()
+
+    return current_num_day in weekdays
 
 
 def plot_main_chart(ax, stock_list, time, window):
@@ -162,7 +169,7 @@ def add_anchored_text_chart(ax, text, loc=2):
 
 while True:
 
-    if check_execution_hour(begin_hour, end_hour):
+    if check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution):
         list_cross_bb_upper = []
         list_cross_bb_lower = []
 
@@ -180,7 +187,7 @@ while True:
 
         plot_main_chart(axes, stock_prices, stock_time, window)
 
-        #lower_band, upper_band = plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
+        # lower_band, upper_band = plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
         lower_band, upper_band = calc_bollinger_bands_chart(axes, stock_prices, window, deviation)
 
         list_cross_bb_upper.append(upper_band)
@@ -188,13 +195,12 @@ while True:
 
         plot_bollinger_bands_chart(axes, lower_band, upper_band)
 
-
         plot_line_chart(axes, len(stock_prices), target_price_buy, 'blue', '.', 'Target Buy')
         plot_line_chart(axes, len(stock_prices), target_price_sell, 'pink', '.', 'Target Sell')
 
         plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
 
-        #detect_cross_bollinger_bands(stock_prices, lower_band, upper_band)
+        # detect_cross_bollinger_bands(stock_prices, lower_band, upper_band)
 
         print('Sucesss.', helper.get_current_date_hour_str())
 
