@@ -22,8 +22,15 @@ deviation = 2
 target_price_buy = 7.6
 target_price_sell = 7.3
 
+bollinger_sell = []
+bollinger_buy = []
+bollinger_index_sell = []
+bollinger_index_buy = []
+bollinger_signal = []
+
+
 fig = plt.figure(figsize=(16, 8))
-fig.canvas.set_window_title('Acompanhamento value Ação')
+fig.canvas.set_window_title('Acompanhamento Valor Ação')
 fig.suptitle('USIM5')
 axes = fig.gca()
 
@@ -133,25 +140,39 @@ def calc_bollinger_bands_chart(ax, stock_list, window, deviation):
     return lower_band, upper_band
 
 
-def detect_cross_bollinger_bands(stock_list, lower_bands, upper_bands):
-    current_price = stock_list[-1:]
-    current_lower_band = lower_bands[-1:]
-    current_upper_band = upper_bands[-1:]
-    last_price = stock_list[-1:-2]
-    last_lower_band = lower_bands[-1:-2]
-    last_upper_band = upper_bands[-1:-2]
+def detect_cross_bollinger_bands(stock_list, index, lower_bands, upper_bands, buy_list, sell_list, buy_index_list,
+                                 sell_index_list, signal_list):
+    current_price = float(stock_list[-1:])
+    current_lower_band = float(lower_bands[-1:])
+    current_upper_band = float(upper_bands[-1:])
+    last_price = float(stock_list[-2:-1])
+    last_lower_band = float(lower_bands[-2:-1])
+    last_upper_band = float(upper_bands[-2:-1])
 
     if current_price > current_lower_band and last_price <= last_lower_band:
+        buy_list.append(current_price)
+        buy_index_list.append(index)
+        signal_list.append(1)
         print('Buy')
 
     elif current_price < current_upper_band and last_price >= last_upper_band:
+        sell_list.append(current_price)
+        sell_index_list.append(index)
+        signal_list.append(2)
         print('Sell')
     else:
+        signal_list.append(0)
         print('Hold')
 
-    # ax.scatter(stock_list, stock_list, marker='^', color='green')
-    return None
+    return buy_list, sell_list
 
+
+def plota_negociatas(stock_list, lower_band, upper_band, window):
+    #reset
+
+    for i in range(len(stock_list) - (window * 2), len(stock_list)):
+        #_ = detect_cross_bollinger_bands(stock_list[i], i, lower_band[i], upper_band[i])
+        print(i)
 
 def plot_max_min_price_chart(ax, min, max, average):
     text = "Summary\nMax: {}\nMin:  {}\nAvg:  {}".format(max, min, round(average, 2))
@@ -168,61 +189,61 @@ def add_anchored_text_chart(ax, text, loc=2):
 
 
 while True:
+    # if check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution):
+    list_cross_bb_upper = []
+    list_cross_bb_lower = []
 
-    if check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution):
-        list_cross_bb_upper = []
-        list_cross_bb_lower = []
+    # plt.ioff()
 
-        # plt.ioff()
+    print('Getting...')
+    # last_price = get_last_stock_price_ADVN()
+    # last_price = 7.2
+    # save_stock_price(file_stock, last_price)
 
-        print('Getting...')
-        last_price = get_last_stock_price_ADVN()
-        save_stock_price(file_stock, last_price)
+    df = pd.read_csv(file_stock, sep=';', names=['Stock', 'Date', 'Time'])
 
-        df = pd.read_csv(file_stock, sep=';', names=['Stock', 'Date', 'Time'])
+    stock_prices = df['Stock']
+    stock_date = df['Date']
+    stock_time = df['Time']
 
-        stock_prices = df['Stock']
-        stock_date = df['Date']
-        stock_time = df['Time']
+    plot_main_chart(axes, stock_prices, stock_time, window)
 
-        plot_main_chart(axes, stock_prices, stock_time, window)
+    # lower_band, upper_band = plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
+    lower_band, upper_band = calc_bollinger_bands_chart(axes, stock_prices, window, deviation)
 
-        # lower_band, upper_band = plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
-        lower_band, upper_band = calc_bollinger_bands_chart(axes, stock_prices, window, deviation)
+    list_cross_bb_upper.append(upper_band)
+    list_cross_bb_lower.append(lower_band)
 
-        list_cross_bb_upper.append(upper_band)
-        list_cross_bb_lower.append(lower_band)
+    plot_bollinger_bands_chart(axes, lower_band, upper_band)
 
-        plot_bollinger_bands_chart(axes, lower_band, upper_band)
+    plot_line_chart(axes, len(stock_prices), target_price_buy, 'blue', '.', 'Target Buy')
+    plot_line_chart(axes, len(stock_prices), target_price_sell, 'pink', '.', 'Target Sell')
 
-        plot_line_chart(axes, len(stock_prices), target_price_buy, 'blue', '.', 'Target Buy')
-        plot_line_chart(axes, len(stock_prices), target_price_sell, 'pink', '.', 'Target Sell')
+    plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
 
-        plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
+    detect_cross_bollinger_bands(axes, stock_prices, 0 , lower_band, upper_band, bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell, bollinger_signal)
 
-        # detect_cross_bollinger_bands(stock_prices, lower_band, upper_band)
+    print('Sucesss.', helper.get_current_date_hour_str())
 
-        print('Sucesss.', helper.get_current_date_hour_str())
+    plt.legend(loc='best')
+    plt.show()
 
-        plt.legend(loc='best')
-        plt.show()
+    helper.set_sleep(18)
 
-        helper.set_sleep(18)
+# lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
+# stock_prices = [float(value.split(';')[0]) for value in lista_registro_acao]
+# stock_time = [time.split(';')[1] for time in lista_registro_acao]
+# stock_prices = np.array(stock_prices)
 
-    # lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
-    # stock_prices = [float(value.split(';')[0]) for value in lista_registro_acao]
-    # stock_time = [time.split(';')[1] for time in lista_registro_acao]
-    # stock_prices = np.array(stock_prices)
-
-    # try:
-    #     last_price = obtem_ultimo_valor_acao()
-    #     salva_valor_acao(stock_file, last_price)
-    #
-    #     plota(stock_file)
-    #
-    #     print('Sucesss.', helper.get_current_date_hour_str())
-    #
-    #     helper.set_sleep(20)
-    # except:
-    #     print("Erro no servidor. Hora do Erro: ", helper.get_current_date_hour_str())
-    #     helper.set_sleep(60)
+# try:
+#     last_price = obtem_ultimo_valor_acao()
+#     salva_valor_acao(stock_file, last_price)
+#
+#     plota(stock_file)
+#
+#     print('Sucesss.', helper.get_current_date_hour_str())
+#
+#     helper.set_sleep(20)
+# except:
+#     print("Erro no servidor. Hora do Erro: ", helper.get_current_date_hour_str())
+#     helper.set_sleep(60)
