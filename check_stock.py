@@ -17,7 +17,7 @@ weekdays_execution = [1, 2, 3, 4, 5]  # [0 (Sunday), 1 (Monday) ... 6 (Saturday)
 begin_hour_execution = 9
 end_hour_execution = 17
 
-window = 20
+window = 40
 deviation = 2
 target_price_buy = 7.6
 target_price_sell = 7.3
@@ -140,39 +140,39 @@ def calc_bollinger_bands_chart(ax, stock_list, window, deviation):
     return lower_band, upper_band
 
 
-def detect_cross_bollinger_bands(stock_list, index, lower_bands, upper_bands, buy_list, sell_list, buy_index_list,
-                                 sell_index_list, signal_list):
-    current_price = float(stock_list[-1:])
-    current_lower_band = float(lower_bands[-1:])
-    current_upper_band = float(upper_bands[-1:])
-    last_price = float(stock_list[-2:-1])
-    last_lower_band = float(lower_bands[-2:-1])
-    last_upper_band = float(upper_bands[-2:-1])
+def detect_cross_bollinger_bands(stock_list, window, lower_bands, upper_bands):
+    buy_list = []
+    sell_list = []
+    buy_index_list = []
+    sell_index_list = []
+    signal_list = []
 
-    if current_price > current_lower_band and last_price <= last_lower_band:
-        buy_list.append(current_price)
-        buy_index_list.append(index)
-        signal_list.append(1)
-        print('Buy')
+    for index in range(len(stock_list) - (window * 2), len(stock_list)):
 
-    elif current_price < current_upper_band and last_price >= last_upper_band:
-        sell_list.append(current_price)
-        sell_index_list.append(index)
-        signal_list.append(2)
-        print('Sell')
-    else:
-        signal_list.append(0)
-        print('Hold')
+        current_price = float(stock_list[-1:])
+        current_lower_band = float(lower_bands[-1:])
+        current_upper_band = float(upper_bands[-1:])
+        last_price = float(stock_list[-2:-1])
+        last_lower_band = float(lower_bands[-2:-1])
+        last_upper_band = float(upper_bands[-2:-1])
 
-    return buy_list, sell_list
+        if current_price > current_lower_band and last_price <= last_lower_band:
+            buy_list.append(current_price)
+            buy_index_list.append(index)
+            signal_list.append(1)
+            print('Buy')
 
+        elif current_price < current_upper_band and last_price >= last_upper_band:
+            sell_list.append(current_price)
+            sell_index_list.append(index)
+            signal_list.append(2)
+            print('Sell')
+        else:
+            signal_list.append(0)
+            print('Hold')
 
-def plota_negociatas(stock_list, lower_band, upper_band, window):
-    #reset
+    return buy_list, sell_list, buy_index_list, sell_index_list, signal_list
 
-    for i in range(len(stock_list) - (window * 2), len(stock_list)):
-        #_ = detect_cross_bollinger_bands(stock_list[i], i, lower_band[i], upper_band[i])
-        print(i)
 
 def plot_max_min_price_chart(ax, min, max, average):
     text = "Summary\nMax: {}\nMin:  {}\nAvg:  {}".format(max, min, round(average, 2))
@@ -196,9 +196,8 @@ while True:
     # plt.ioff()
 
     print('Getting...')
-    # last_price = get_last_stock_price_ADVN()
-    # last_price = 7.2
-    # save_stock_price(file_stock, last_price)
+    #last_price = get_last_stock_price_ADVN()
+    #save_stock_price(file_stock, last_price)
 
     df = pd.read_csv(file_stock, sep=';', names=['Stock', 'Date', 'Time'])
 
@@ -208,11 +207,7 @@ while True:
 
     plot_main_chart(axes, stock_prices, stock_time, window)
 
-    # lower_band, upper_band = plot_bollinger_bands_chart(axes, stock_prices, window, deviation)
     lower_band, upper_band = calc_bollinger_bands_chart(axes, stock_prices, window, deviation)
-
-    list_cross_bb_upper.append(upper_band)
-    list_cross_bb_lower.append(lower_band)
 
     plot_bollinger_bands_chart(axes, lower_band, upper_band)
 
@@ -221,7 +216,19 @@ while True:
 
     plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
 
-    detect_cross_bollinger_bands(axes, stock_prices, 0 , lower_band, upper_band, bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell, bollinger_signal)
+    detect_cross_bollinger_bands(stock_prices, window, lower_band, upper_band, bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell, bollinger_signal)
+
+
+    if len(bollinger_buy) > 0:
+        axes.scatter(bollinger_index_buy, bollinger_buy, marker='v', color='red')
+        for c in range(len(bollinger_index_buy)):
+            axes.text(bollinger_index_buy[c], bollinger_buy[c], ' - compra', color='black', alpha=.5)
+
+    if len(bollinger_sell) > 0:
+        axes.scatter(bollinger_index_sell, bollinger_sell, marker='^', color='green')
+        for v in range(len(bollinger_index_sell)):
+            axes.text(bollinger_index_sell[v], bollinger_sell[v], ' - venda', color='black', alpha=.5)
+
 
     print('Sucesss.', helper.get_current_date_hour_str())
 
