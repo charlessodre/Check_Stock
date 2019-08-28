@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 import helper
 
-exibe_ultimos_registros = 50
-
 file_path = 'base'
 file_stock_name = 'USIM5.csv'
 file_stock = helper.path_join(file_path, file_stock_name)
@@ -27,7 +25,6 @@ bollinger_buy = []
 bollinger_index_sell = []
 bollinger_index_buy = []
 bollinger_signal = []
-
 
 fig = plt.figure(figsize=(16, 8))
 fig.canvas.set_window_title('Acompanhamento Valor Ação')
@@ -104,20 +101,6 @@ def plot_main_chart(ax, stock_list, time, window):
     plt.xticks(rotation=90)
 
 
-# def plot_bollinger_bands_chart(ax, stock_list, window, deviation):
-#     if len(stock_list) > window:
-#         media = stock_list.rolling(window=window).mean()
-#         rolling_std = stock_list.rolling(window=window).std()
-#
-#         upper_band = media + (rolling_std * deviation)
-#         lower_band = media - (rolling_std * deviation)
-#
-#         ax.plot(upper_band, '--', color="green", alpha=.5, label='BB Up')
-#         ax.plot(lower_band, '--', color="red", alpha=.5, label='BB Down')
-#
-#         return lower_band, upper_band
-
-
 def plot_bollinger_bands_chart(ax, upper_band, lower_band):
     ax.plot(upper_band, '--', color="green", alpha=.5, label='BB Up')
     ax.plot(lower_band, '--', color="red", alpha=.5, label='BB Down')
@@ -141,6 +124,10 @@ def calc_bollinger_bands_chart(ax, stock_list, window, deviation):
 
 
 def detect_cross_bollinger_bands(stock_list, window, lower_bands, upper_bands):
+    stock_list_hist = []
+    lower_bands_hist = []
+    upper_bands_hist = []
+
     buy_list = []
     sell_list = []
     buy_index_list = []
@@ -149,29 +136,53 @@ def detect_cross_bollinger_bands(stock_list, window, lower_bands, upper_bands):
 
     for index in range(len(stock_list) - (window * 2), len(stock_list)):
 
-        current_price = float(stock_list[-1:])
-        current_lower_band = float(lower_bands[-1:])
-        current_upper_band = float(upper_bands[-1:])
-        last_price = float(stock_list[-2:-1])
-        last_lower_band = float(lower_bands[-2:-1])
-        last_upper_band = float(upper_bands[-2:-1])
+        stock_list_hist.append(float(stock_list[index]))
+        lower_bands_hist.append(float(lower_bands[index]))
+        upper_bands_hist.append(float(upper_bands[index]))
 
-        if current_price > current_lower_band and last_price <= last_lower_band:
-            buy_list.append(current_price)
-            buy_index_list.append(index)
-            signal_list.append(1)
-            print('Buy')
+        if len(signal_list) > 1:
 
-        elif current_price < current_upper_band and last_price >= last_upper_band:
-            sell_list.append(current_price)
-            sell_index_list.append(index)
-            signal_list.append(2)
-            print('Sell')
+            stock_price = float(stock_list[index])
+
+            current_price = stock_list_hist[-1:]
+            current_lower_band = lower_bands_hist[-1:]
+            current_upper_band = upper_bands_hist[-1:]
+
+            last_price = stock_list_hist[-2:-1]
+            last_lower_band = lower_bands_hist[-2:-1]
+            last_upper_band = upper_bands_hist[-2:-1]
+
+            if current_price > current_lower_band and last_price <= last_lower_band:
+                buy_list.append(stock_price)
+                buy_index_list.append(index)
+                signal_list.append(1)
+                print('Buy')
+
+            elif current_price < current_upper_band and last_price >= last_upper_band:
+                sell_list.append(stock_price)
+                sell_index_list.append(index)
+                signal_list.append(2)
+                print('Sell')
+            else:
+                signal_list.append(0)
+                print('Hold')
         else:
             signal_list.append(0)
             print('Hold')
 
     return buy_list, sell_list, buy_index_list, sell_index_list, signal_list
+
+
+def plot_signals_bollinger_bands_chart(ax, bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell):
+    if len(bollinger_buy) > 0:
+        ax.scatter(bollinger_index_buy, bollinger_buy, marker='v', color='red')
+        for buy in range(len(bollinger_index_buy)):
+            ax.text(bollinger_index_buy[buy], bollinger_buy[buy], ' - buy', color='black', alpha=.5)
+
+    if len(bollinger_sell) > 0:
+        ax.scatter(bollinger_index_sell, bollinger_sell, marker='^', color='green')
+        for sell in range(len(bollinger_index_sell)):
+            ax.text(bollinger_index_sell[sell], bollinger_sell[sell], ' - sell', color='black', alpha=.5)
 
 
 def plot_max_min_price_chart(ax, min, max, average):
@@ -196,8 +207,8 @@ while True:
     # plt.ioff()
 
     print('Getting...')
-    #last_price = get_last_stock_price_ADVN()
-    #save_stock_price(file_stock, last_price)
+    # last_price = get_last_stock_price_ADVN()
+    # save_stock_price(file_stock, last_price)
 
     df = pd.read_csv(file_stock, sep=';', names=['Stock', 'Date', 'Time'])
 
@@ -216,19 +227,10 @@ while True:
 
     plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
 
-    detect_cross_bollinger_bands(stock_prices, window, lower_band, upper_band, bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell, bollinger_signal)
+    bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell, bollinger_signal = detect_cross_bollinger_bands(
+        stock_prices, window, lower_band, upper_band)
 
-
-    if len(bollinger_buy) > 0:
-        axes.scatter(bollinger_index_buy, bollinger_buy, marker='v', color='red')
-        for c in range(len(bollinger_index_buy)):
-            axes.text(bollinger_index_buy[c], bollinger_buy[c], ' - compra', color='black', alpha=.5)
-
-    if len(bollinger_sell) > 0:
-        axes.scatter(bollinger_index_sell, bollinger_sell, marker='^', color='green')
-        for v in range(len(bollinger_index_sell)):
-            axes.text(bollinger_index_sell[v], bollinger_sell[v], ' - venda', color='black', alpha=.5)
-
+    plot_signals_bollinger_bands_chart(axes, bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell)
 
     print('Sucesss.', helper.get_current_date_hour_str())
 
