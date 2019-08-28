@@ -118,15 +118,15 @@ def plot_line_chart(ax, list_size, value, color_name, marker="*", legend=None, a
     ax.plot(lim, marker, color=color_name, alpha=alpha, label=legend)
 
 
-def calc_bollinger_bands(ax, stock_list, window, deviation):
-    if len(stock_list) > window:
-        media = stock_list.rolling(window=window).mean()
-        rolling_std = stock_list.rolling(window=window).std()
+def calc_bollinger_bands(ax, stock_list, window_avg_calc, deviation):
 
-        upper_band = media + (rolling_std * deviation)
-        lower_band = media - (rolling_std * deviation)
+    if len(stock_list) > window_avg_calc:
+        media = stock_list.rolling(window=window_avg_calc).mean()
+        rolling_std = stock_list.rolling(window=window_avg_calc).std()
+        bb_upper = media + (rolling_std * deviation)
+        bb_lower = media - (rolling_std * deviation)
 
-    return lower_band, upper_band
+    return bb_lower, bb_upper
 
 
 def detect_cross_bollinger_bands(stock_list, window, lower_bands, upper_bands):
@@ -209,8 +209,6 @@ while True:
     # if check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution):
     list_cross_bb_upper = []
     list_cross_bb_lower = []
-
-    # plt.ioff()
 
     print('Getting...')
     # last_price = get_last_stock_price_ADVN()
