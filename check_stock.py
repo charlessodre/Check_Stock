@@ -1,4 +1,10 @@
-# Importação das bibliotecas
+# Create by: Charles Sodré (https://github.com/charlessodre/Check_Stock)
+# Date: 08/2019
+# Based in course of Saulo Catharino: https://github.com/saulocatharino/machine_learning_for_traders
+#
+
+
+# Library Import
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -102,8 +108,8 @@ def plot_main_chart(ax, stock_list, time, window):
 
 
 def plot_bollinger_bands_chart(ax, upper_band, lower_band):
-    ax.plot(upper_band, '--', color="green", alpha=.5, label='BB Up')
-    ax.plot(lower_band, '--', color="red", alpha=.5, label='BB Down')
+    ax.plot(upper_band, '--', color="green", alpha=.2, label='BB Up')
+    ax.plot(lower_band, '--', color="red", alpha=.2, label='BB Down')
 
 
 def plot_line_chart(ax, list_size, value, color_name, marker="*", legend=None, alpha=0.5):
@@ -112,7 +118,7 @@ def plot_line_chart(ax, list_size, value, color_name, marker="*", legend=None, a
     ax.plot(lim, marker, color=color_name, alpha=alpha, label=legend)
 
 
-def calc_bollinger_bands_chart(ax, stock_list, window, deviation):
+def calc_bollinger_bands(ax, stock_list, window, deviation):
     if len(stock_list) > window:
         media = stock_list.rolling(window=window).mean()
         rolling_std = stock_list.rolling(window=window).std()
@@ -218,7 +224,7 @@ while True:
 
     plot_main_chart(axes, stock_prices, stock_time, window)
 
-    lower_band, upper_band = calc_bollinger_bands_chart(axes, stock_prices, window, deviation)
+    lower_band, upper_band = calc_bollinger_bands(axes, stock_prices, window, deviation)
 
     plot_bollinger_bands_chart(axes, lower_band, upper_band)
 
