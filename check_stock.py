@@ -15,18 +15,23 @@ from matplotlib.offsetbox import AnchoredText
 import helper
 import telegram_send
 
-file_path = 'base'
+config_file_path = helper.path_join('config', 'config.txt')
+path_base = 'base'
+source_url = 'https://br.investing.com/equities/usiminas-pna'
 file_stock_name = 'USIM5.csv'
-file_stock = helper.path_join(file_path, file_stock_name)
+file_stock = helper.path_join(path_base, file_stock_name)
 
-weekdays_execution = [1, 2, 3, 4, 5]  # [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
-begin_hour_execution = 9
-end_hour_execution = 17
+# [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
+weekdays_execution = None  # [1, 2, 3, 4, 5]
+begin_hour_execution = None  # 9
+end_hour_execution = None  # 17
 
-window = 40
-deviation = 2
-target_price_minimum = 7.3
-target_price_maximum = 7.6
+bollinger_calculation_window = None  # 40
+bollinger_standard_deviation = None  # 2
+
+x_axis_view_limit = None  # 30
+target_price_minimum = None  # 7.3
+target_price_maximum = None  # 7.6
 
 bollinger_sell = []
 bollinger_buy = []
@@ -41,8 +46,19 @@ fig.suptitle('USIM5')
 axes = fig.gca()
 
 
-def get_last_stock_price_ADVN():
-    source_url = 'https://br.investing.com/equities/usiminas-pna'
+def get_configs(config_file_path):
+    settings = {}
+
+    configs = helper.read_file(config_file_path, 'r')
+    for config in configs:
+        items = config.split('=')
+        settings[items[0]] = items[1]
+
+    return settings
+
+
+def get_last_stock_price_ADVN(source_url):
+    # source_url = 'https://br.investing.com/equities/usiminas-pna'
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36'}
     con = requests.get(source_url, headers=headers)
@@ -109,7 +125,8 @@ def plot_main_chart(ax, stock_list, time, window):
     ax.plot(time, stock_list, label='Stock Price')
 
     plt.yticks(fontsize=8)
-    plt.xticks(fontsize=8, rotation=45)
+    plt.xticks(fontsize=8, rotation=-45)
+
 
 def plot_bollinger_bands_chart(ax, upper_band, lower_band):
     ax.plot(upper_band, '--', color="green", alpha=.2, label='BB Up')
@@ -257,7 +274,43 @@ def send_message(message):
         # print(msg)
 
 
+def set_global_configs(configs_dict):
+    global source_url
+    global file_stock_name
+    global file_stock
+
+    global weekdays_execution
+    global begin_hour_execution
+    global end_hour_execution
+
+    global bollinger_calculation_window
+    global bollinger_standard_deviation
+
+    global x_axis_view_limit
+    global target_price_minimum
+    global target_price_maximum
+
+    source_url = configs_dict['source_url']
+
+    weekdays_execution = configs_dict['weekdays_execution']
+    weekdays_execution = weekdays_execution.split('#')[0]
+    weekdays_execution = eval(weekdays_execution)
+
+    begin_hour_execution = int(configs_dict['begin_hour_execution'])
+    end_hour_execution = int(configs_dict['end_hour_execution'])
+    bollinger_calculation_window = int(configs_dict['bollinger_calculation_window'])
+    bollinger_standard_deviation = float(configs_dict['bollinger_standard_deviation'])
+    x_axis_view_limit = int(configs_dict['x_axis_view_limit'])
+    target_price_minimum = float(configs_dict['target_price_minimum'])
+    target_price_maximum = float(configs_dict['target_price_maximum'])
+
+    file_stock = helper.path_join(path_base, file_stock_name)
+
+
 while True:
+
+    configs_dict = get_configs(config_file_path)
+    set_global_configs(configs_dict)
 
     if check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution):
         print('Getting...')
@@ -270,14 +323,15 @@ while True:
     stock_date = df['Date']
     stock_time = df['Time']
 
-    plot_main_chart(axes, stock_prices, stock_time, window)
+    plot_main_chart(axes, stock_prices, stock_time, x_axis_view_limit)
 
-    upper_band, lower_band = calc_bollinger_bands(axes, stock_prices, window, deviation)
+    upper_band, lower_band = calc_bollinger_bands(axes, stock_prices, bollinger_calculation_window,
+                                                  bollinger_standard_deviation)
 
     if upper_band is not None or lower_band is not None:
         plot_bollinger_bands_chart(axes, lower_band, upper_band)
         bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell, bollinger_signal = detect_cross_bollinger_bands(
-            stock_prices, window, lower_band, upper_band)
+            stock_prices, x_axis_view_limit, lower_band, upper_band)
 
         plot_signals_bollinger_bands_chart(axes, bollinger_buy, bollinger_sell, bollinger_index_buy,
                                            bollinger_index_sell)
@@ -297,7 +351,7 @@ while True:
 
     plt.legend(loc='best')
     # plt.show()
-    plt.pause(0.1)
+    plt.pause(1)
 
     helper.set_sleep(18)
 
