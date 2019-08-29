@@ -11,38 +11,50 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
-
+import logging
 import helper
+# https://github.com/rahiel/telegram-send
 import telegram_send
 
-config_file_path = helper.path_join('config', 'config.txt')
-path_base = 'base'
-source_url = 'https://br.investing.com/equities/usiminas-pna'
-file_stock_name = 'USIM5.csv'
-file_stock = helper.path_join(path_base, file_stock_name)
+logging.basicConfig(filename=helper.path_join('log', 'application_log.log'), level=logging.ERROR)
+
+CONFIG_FILE_PATH = helper.path_join('config', 'config.txt')
+BASE_PATH = 'base'
+SOURCE_URL = None  # 'https://br.investing.com/equities/usiminas-pna'
+STOCK_FILE = None
 
 # [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
-weekdays_execution = None  # [1, 2, 3, 4, 5]
-begin_hour_execution = None  # 9
-end_hour_execution = None  # 17
+WEEKDAYS_EXECUTION = None  # [1, 2, 3, 4, 5]
+BEGIN_HOUR_EXECUTION = None  # 9
+END_HOUR_EXECUTION = None  # 17
 
-bollinger_calculation_window = None  # 40
-bollinger_standard_deviation = None  # 2
+BOLLINGER_CALCULATION_WINDOW = None  # 40
+BOLLINGER_STANDARD_DEVIATION = None  # 2
 
-x_axis_view_limit = None  # 30
-target_price_minimum = None  # 7.3
-target_price_maximum = None  # 7.6
+X_AXIS_VIEW_LIMIT = None  # 30
+TARGET_PRICE_MINIMUM = None  # 7.3
+TARGET_PRICE_MAXIMUM = None  # 7.6
 
-bollinger_sell = []
-bollinger_buy = []
-bollinger_index_sell = []
-bollinger_index_buy = []
-bollinger_signal = []
+SHOW_MAIN_CHART = True
+SHOW_BOLLINGER_BANDS_CHART = True
+SHOW_TARGET_PRICES_CHART = True
+SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS = True
+SEND_NOTIFICATION_CROSS_TARGET_PRICES = False
+INTERVAL_BETEWEEN_RUNS = 20
+READ_LAST_LINES_STOCK_FILE = 50
+
+NUM_ERRORS_MAIN = 0
+
+BOLLINGER_SELL = []
+BOLLINGER_BUY = []
+BOLLINGER_INDEX_SELL = []
+BOLLINGER_INDEX_BUY = []
+BOLLINGER_SIGNAL = []
 
 mpl.rcParams['toolbar'] = 'None'
 fig = plt.figure(figsize=(16, 8))
-fig.canvas.set_window_title('Acompanhamento Valor Ação')
-fig.suptitle('USIM5')
+# fig.canvas.set_window_title('Acompanhamento Valor Ação')
+# fig.suptitle('USIM5')
 axes = fig.gca()
 
 
@@ -51,14 +63,15 @@ def get_configs(config_file_path):
 
     configs = helper.read_file(config_file_path, 'r')
     for config in configs:
-        items = config.split('=')
-        settings[items[0]] = items[1]
+        if len(config.strip()) > 10:
+            items = config.split('=')
+            settings[items[0]] = items[1]
 
     return settings
 
 
 def get_last_stock_price_ADVN(source_url):
-    # source_url = 'https://br.investing.com/equities/usiminas-pna'
+    # SOURCE_URL = 'https://br.investing.com/equities/usiminas-pna'
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36'}
     con = requests.get(source_url, headers=headers)
@@ -125,7 +138,7 @@ def plot_main_chart(ax, stock_list, time, window):
     ax.plot(time, stock_list, label='Stock Price')
 
     plt.yticks(fontsize=8)
-    plt.xticks(fontsize=8, rotation=-45)
+    plt.xticks(fontsize=8, rotation=45)
 
 
 def plot_bollinger_bands_chart(ax, upper_band, lower_band):
@@ -139,7 +152,7 @@ def plot_line_chart(ax, list_size, value, color_name, marker="*", legend=None, a
     ax.plot(lim, marker, color=color_name, alpha=alpha, label=legend)
 
 
-def calc_bollinger_bands(ax, stock_list, window_avg_calc, deviation):
+def calc_bollinger_bands(stock_list, window_avg_calc, deviation):
     bb_lower = None
     bb_upper = None
 
@@ -185,20 +198,23 @@ def detect_cross_bollinger_bands(stock_list, window, lower_bands, upper_bands):
                 if current_price > current_lower_band and last_price <= last_lower_band:
                     buy_list.append(stock_price)
                     buy_index_list.append(index)
+                    # 'Buy'
                     signal_list.append(1)
-                    print('Buy')
+
 
                 elif current_price < current_upper_band and last_price >= last_upper_band:
                     sell_list.append(stock_price)
                     sell_index_list.append(index)
+                    # 'Sell'
                     signal_list.append(2)
-                    print('Sell')
+
                 else:
+                    # 'Hold'
                     signal_list.append(0)
-                    print('Hold')
+
             else:
+                # 'Hold'
                 signal_list.append(0)
-                print('Hold')
 
     return buy_list, sell_list, buy_index_list, sell_index_list, signal_list
 
@@ -275,100 +291,181 @@ def send_message(message):
 
 
 def set_global_configs(configs_dict):
-    global source_url
-    global file_stock_name
-    global file_stock
+    global SOURCE_URL
+    global STOCK_FILE
 
-    global weekdays_execution
-    global begin_hour_execution
-    global end_hour_execution
+    global WEEKDAYS_EXECUTION
+    global BEGIN_HOUR_EXECUTION
+    global END_HOUR_EXECUTION
 
-    global bollinger_calculation_window
-    global bollinger_standard_deviation
+    global BOLLINGER_CALCULATION_WINDOW
+    global BOLLINGER_STANDARD_DEVIATION
 
-    global x_axis_view_limit
-    global target_price_minimum
-    global target_price_maximum
+    global X_AXIS_VIEW_LIMIT
+    global TARGET_PRICE_MINIMUM
+    global TARGET_PRICE_MAXIMUM
 
-    source_url = configs_dict['source_url']
+    global SHOW_MAIN_CHART
+    global SHOW_BOLLINGER_BANDS_CHART
+    global SHOW_TARGET_PRICES_CHART
+    global SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS
+    global SEND_NOTIFICATION_CROSS_TARGET_PRICES
 
-    weekdays_execution = configs_dict['weekdays_execution']
-    weekdays_execution = weekdays_execution.split('#')[0]
-    weekdays_execution = eval(weekdays_execution)
+    global INTERVAL_BETEWEEN_RUNS
+    global READ_LAST_LINES_STOCK_FILE
 
-    begin_hour_execution = int(configs_dict['begin_hour_execution'])
-    end_hour_execution = int(configs_dict['end_hour_execution'])
-    bollinger_calculation_window = int(configs_dict['bollinger_calculation_window'])
-    bollinger_standard_deviation = float(configs_dict['bollinger_standard_deviation'])
-    x_axis_view_limit = int(configs_dict['x_axis_view_limit'])
-    target_price_minimum = float(configs_dict['target_price_minimum'])
-    target_price_maximum = float(configs_dict['target_price_maximum'])
+    SOURCE_URL = configs_dict['source_url']
 
-    file_stock = helper.path_join(path_base, file_stock_name)
+    WEEKDAYS_EXECUTION = configs_dict['weekdays_execution']
+    WEEKDAYS_EXECUTION = WEEKDAYS_EXECUTION.split('#')[0]
+    WEEKDAYS_EXECUTION = eval(WEEKDAYS_EXECUTION)
+
+    BEGIN_HOUR_EXECUTION = int(configs_dict['begin_hour_execution'])
+    END_HOUR_EXECUTION = int(configs_dict['end_hour_execution'])
+    BOLLINGER_CALCULATION_WINDOW = int(configs_dict['bollinger_calculation_window'])
+    BOLLINGER_STANDARD_DEVIATION = float(configs_dict['bollinger_standard_deviation'])
+    X_AXIS_VIEW_LIMIT = int(configs_dict['x_axis_view_limit'])
+    TARGET_PRICE_MINIMUM = float(configs_dict['target_price_minimum'])
+    TARGET_PRICE_MAXIMUM = float(configs_dict['target_price_maximum'])
+
+    SHOW_MAIN_CHART = bool(int(configs_dict['show_main_chart']))
+    SHOW_BOLLINGER_BANDS_CHART = bool(int(configs_dict['show_bollinger_bands_chart']))
+    SHOW_TARGET_PRICES_CHART = bool(int(configs_dict['show_target_prices_chart']))
+    SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS = bool(int(configs_dict['send_notification_cross_bollinger_bands']))
+    SEND_NOTIFICATION_CROSS_TARGET_PRICES = bool(int(configs_dict['send_notification_cross_target_prices']))
+
+    INTERVAL_BETEWEEN_RUNS = int(configs_dict['interval_beteween_runs'])
+
+    READ_LAST_LINES_STOCK_FILE = int(configs_dict['read_last_lines_stock_file'])
+
+    stock_filename = configs_dict['stock_filename']
+    STOCK_FILE = helper.path_join(BASE_PATH, stock_filename)
 
 
-while True:
+def load_configs(config_file_path):
+    set_global_configs(get_configs(config_file_path))
 
-    configs_dict = get_configs(config_file_path)
-    set_global_configs(configs_dict)
 
-    if check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution):
-        print('Getting...')
-        current_price = get_last_stock_price_ADVN()
-        save_stock_price(file_stock, current_price)
+def get_stock_history(source_url, file_stock):
+    current_price = get_last_stock_price_ADVN(source_url)
+    save_stock_price(file_stock, current_price)
 
-    df = pd.read_csv(file_stock, sep=';', names=['Stock', 'Date', 'Time'])
+
+def check_execution(weekdays_execution, begin_hour_execution, end_hour_execution):
+    return check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution)
+
+
+def clear():
+    index = -10
+    del BOLLINGER_SELL[:index]
+    del BOLLINGER_BUY[:index]
+    del BOLLINGER_INDEX_SELL[:index]
+    del BOLLINGER_INDEX_BUY[:index]
+    del BOLLINGER_SIGNAL[:index]
+
+
+from pathlib import Path
+from collections import deque
+
+
+def get_stock_list(stock_file, last_lines):
+    stock_prices = []
+    stock_date = []
+    stock_time = []
+
+    if helper.file_exists(stock_file):
+        stock_record = helper.read_last_lines_file(stock_file, last_lines)
+        stock_prices = [p.split(';')[0] for p in stock_record]
+        stock_time = [p.split(';')[2] for p in stock_record]
+
+    return stock_prices, stock_date, stock_time
+
+
+def main():
+    df = pd.read_csv(STOCK_FILE, sep=';', names=['Stock', 'Date', 'Time'])
 
     stock_prices = df['Stock']
-    stock_date = df['Date']
+    # tock_date = df['Date']
     stock_time = df['Time']
 
-    plot_main_chart(axes, stock_prices, stock_time, x_axis_view_limit)
+    #stock_prices, _, stock_time = get_stock_list(STOCK_FILE, READ_LAST_LINES_STOCK_FILE)
 
-    upper_band, lower_band = calc_bollinger_bands(axes, stock_prices, bollinger_calculation_window,
-                                                  bollinger_standard_deviation)
+    upper_band, lower_band = calc_bollinger_bands(stock_prices, BOLLINGER_CALCULATION_WINDOW,
+                                                  BOLLINGER_STANDARD_DEVIATION)
 
     if upper_band is not None or lower_band is not None:
-        plot_bollinger_bands_chart(axes, lower_band, upper_band)
-        bollinger_buy, bollinger_sell, bollinger_index_buy, bollinger_index_sell, bollinger_signal = detect_cross_bollinger_bands(
-            stock_prices, x_axis_view_limit, lower_band, upper_band)
+        BOLLINGER_BUY, BOLLINGER_SELL, BOLLINGER_INDEX_BUY, BOLLINGER_INDEX_SELL, BOLLINGER_SIGNAL = detect_cross_bollinger_bands(
+            stock_prices, X_AXIS_VIEW_LIMIT, lower_band, upper_band)
 
-        plot_signals_bollinger_bands_chart(axes, bollinger_buy, bollinger_sell, bollinger_index_buy,
-                                           bollinger_index_sell)
+    if SHOW_MAIN_CHART:
 
+        plot_main_chart(axes, stock_prices, stock_time, X_AXIS_VIEW_LIMIT)
+        plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
+
+        if upper_band is not None or lower_band is not None:
+
+            if SHOW_BOLLINGER_BANDS_CHART:
+                plot_bollinger_bands_chart(axes, lower_band, upper_band)
+                plot_signals_bollinger_bands_chart(axes, BOLLINGER_BUY, BOLLINGER_SELL, BOLLINGER_INDEX_BUY,
+                                                   BOLLINGER_INDEX_SELL)
+
+        if SHOW_TARGET_PRICES_CHART:
+            plot_line_chart(axes, len(stock_prices), TARGET_PRICE_MINIMUM, 'blue', '.', 'Target Buy')
+            plot_line_chart(axes, len(stock_prices), TARGET_PRICE_MAXIMUM, 'pink', '.', 'Target Sell')
+
+        plt.legend(loc='best')
+        # plt.show()
+        plt.pause(1)
+
+    if SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS:
         notify_cross_bollinger_bands(float(stock_prices[-1:]), float(lower_band[-1:]), float(upper_band[-1:]),
                                      float(stock_prices[-2:-1]),
                                      float(lower_band[-2:-1]), float(upper_band[-2:-1]))
 
-    plot_line_chart(axes, len(stock_prices), target_price_minimum, 'blue', '.', 'Target Buy')
-    plot_line_chart(axes, len(stock_prices), target_price_maximum, 'pink', '.', 'Target Sell')
+    if SEND_NOTIFICATION_CROSS_TARGET_PRICES:
+        notify_cross_target_limits(float(stock_prices[-1:]), TARGET_PRICE_MINIMUM, TARGET_PRICE_MAXIMUM)
 
-    # notify_cross_target_limits(float(stock_prices[-1:]), target_price_minimum, target_price_maximum)
+    clear()
 
-    plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
 
-    print('Sucesss.', helper.get_current_date_hour_str())
+while True:
 
-    plt.legend(loc='best')
-    # plt.show()
-    plt.pause(1)
+    try:
+        load_configs(CONFIG_FILE_PATH)
+    except Exception as e:
+        msg = "FATAL ERROR SETTINGS. Error loading settings. Time: {}. Exception: {}".format(
+            helper.get_current_date_hour_str(), e)
+        print(msg)
+        logging.critical(msg)
+        send_message(msg)
+        exit('FATAL ERROR SETTINGS')
 
-    helper.set_sleep(18)
+    try:
+        if check_execution(WEEKDAYS_EXECUTION, BEGIN_HOUR_EXECUTION, END_HOUR_EXECUTION):
+            get_stock_history(SOURCE_URL, STOCK_FILE)
+    except Exception as e:
+        msg = "Error get stock. Time: {}. Exception: {}".format(helper.get_current_date_hour_str(), e)
+        print(msg)
+        logging.error(msg)
 
-# lista_registro_acao = lista_registro_acao[-exibe_ultimos_registros:]
-# stock_prices = [float(value.split(';')[0]) for value in lista_registro_acao]
-# stock_time = [time.split(';')[1] for time in lista_registro_acao]
-# stock_prices = np.array(stock_prices)
+        helper.set_sleep(60)
 
-# try:
-#     current_price = obtem_ultimo_valor_acao()
-#     salva_valor_acao(stock_file, current_price)
-#
-#     plota(stock_file)
-#
-#     print('Sucesss.', helper.get_current_date_hour_str())
-#
-#     helper.set_sleep(20)
-# except:
-#     print("Erro no servidor. Hora do Erro: ", helper.get_current_date_hour_str())
-#     helper.set_sleep(60)
+    try:
+        main()
+        NUM_ERRORS_MAIN = 0
+    except Exception as e:
+        msg = "Error main function. Time: {}. Exception: {}".format(helper.get_current_date_hour_str(), e)
+        print(msg)
+        logging.error(msg)
+
+        helper.set_sleep(60)
+        NUM_ERRORS_MAIN += 1
+        if NUM_ERRORS_MAIN > 5:
+            msg = "FATAL ERROR MAIN. " + msg
+            print(msg)
+            logging.critical(msg)
+            send_message(msg)
+            exit('FATAL ERROR MAIN')
+
+    print('Success.', helper.get_current_date_hour_str())
+    helper.set_sleep(INTERVAL_BETEWEEN_RUNS - 1)

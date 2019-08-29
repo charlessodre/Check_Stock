@@ -9,7 +9,7 @@ import shutil
 import glob
 import time
 from PIL import Image
-from PIL import ImageOps
+from collections import deque
 
 
 def rename(name, newname):
@@ -88,6 +88,30 @@ def read_file(file_name, mode='r'):
 
     with open(file_name, mode) as f:
         content = f.readlines()
+    content = [x.strip() for x in content]
+
+    return content
+
+
+def read_last_lines_file(file_name, n_lines, mode='r'):
+    """
+    read content file and return list
+    :param str file_name: name file.
+    :param int n_lines: n_lines number lines returned
+    :param str mode: mode open file.
+    :return list with content of file
+    mode options:
+
+    r - Open for reading plain text
+    w - Open for writing plain text
+    a - Open an existing file for appending plain text
+    rb - Open for reading binary data
+    wb -Open for writing binary data
+
+    """
+
+    with open(file_name, mode) as f:
+        content = deque(f, n_lines)
     content = [x.strip() for x in content]
 
     return content
@@ -288,11 +312,10 @@ def get_current_number_weekday():
     """
     return int(time.strftime("%w"))
 
+
 def set_sleep(seconds):
     """
     Wait some seconds
     :param seconds:
     """
     time.sleep(seconds)
-
-

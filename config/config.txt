@@ -1,6 +1,7 @@
 source_url=https://br.investing.com/equities/usiminas-pna
 stock_name=USIM5
-file_stock_name=USIM5.csv
+stock_filename=USIM5.csv
+read_last_lines_stock_file=50
 weekdays_execution=1, 2, 3, 4, 5  # [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
 begin_hour_execution=9
 end_hour_execution=17
@@ -9,3 +10,11 @@ bollinger_standard_deviation=2
 target_price_minimum=7.3
 target_price_maximum=7.6
 x_axis_view_limit=40
+show_main_chart=1
+show_bollinger_bands_chart=1
+show_target_prices_chart=1
+send_notification_cross_bollinger_bands=1
+send_notification_cross_target_prices=0
+interval_beteween_runs=20
+
+
