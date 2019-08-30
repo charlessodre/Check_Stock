@@ -1,7 +1,7 @@
 source_url=https://br.investing.com/equities/usiminas-pna
 stock_name=USIM5
 stock_filename=USIM5.csv
-read_last_lines_stock_file=50
+read_last_lines_stock_file=200
 weekdays_execution=1, 2, 3, 4, 5  # [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
 begin_hour_execution=9
 end_hour_execution=17

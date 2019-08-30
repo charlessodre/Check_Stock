@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 import logging
 import helper
+
 # https://github.com/rahiel/telegram-send
 import telegram_send
 
@@ -22,6 +23,10 @@ CONFIG_FILE_PATH = helper.path_join('config', 'config.txt')
 BASE_PATH = 'base'
 SOURCE_URL = None  # 'https://br.investing.com/equities/usiminas-pna'
 STOCK_FILE = None
+STOCK_NAME = None
+
+INTERVAL_BETEWEEN_RUNS = None  # 20
+READ_LAST_LINES_STOCK_FILE = None  # 50
 
 # [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
 WEEKDAYS_EXECUTION = None  # [1, 2, 3, 4, 5]
@@ -40,8 +45,6 @@ SHOW_BOLLINGER_BANDS_CHART = True
 SHOW_TARGET_PRICES_CHART = True
 SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS = True
 SEND_NOTIFICATION_CROSS_TARGET_PRICES = False
-INTERVAL_BETEWEEN_RUNS = 20
-READ_LAST_LINES_STOCK_FILE = 50
 
 NUM_ERRORS_MAIN = 0
 
@@ -53,8 +56,7 @@ BOLLINGER_SIGNAL = []
 
 mpl.rcParams['toolbar'] = 'None'
 fig = plt.figure(figsize=(16, 8))
-# fig.canvas.set_window_title('Acompanhamento Valor Ação')
-# fig.suptitle('USIM5')
+fig.canvas.set_window_title('Stock Price History')
 axes = fig.gca()
 
 
@@ -123,8 +125,6 @@ def plot_main_chart(ax, stock_list, time, window):
     ax.clear()
 
     ax.set_xlim(len(stock_list) - window * 2, len(stock_list) + 5)
-
-    # ax.set(xlabel='time (s)', ylabel='USIM5', title='Acompanhamento value Ação')
 
     x_axis_current = time[-1:].max()
     y_axis_current = stock_list[-1:].max()
@@ -231,16 +231,19 @@ def plot_signals_bollinger_bands_chart(ax, bollinger_buy, bollinger_sell, bollin
             ax.text(bollinger_index_sell[sell], bollinger_sell[sell], ' - sell', color='black', alpha=.5)
 
 
-def plot_max_min_price_chart(ax, min, max, average):
-    text = "Summary\nMax: {}\nMin:  {}\nAvg:  {}".format(max, min, round(average, 2))
+def plot_summary_price_chart(ax, stock_list):
+    text = "Summary: Max: {} | Min: {} | Avg: {} | Std: {}".format(stock_list.max(), stock_list.min(),
+                                                                   round(stock_list.mean(), 2),
+                                                                   round(stock_list.std(), 2))
 
-    add_anchored_text_chart(ax, text, loc=2)
+    add_anchored_text_chart(ax, text, loc='lower left')
 
 
 def add_anchored_text_chart(ax, text, loc=2):
-    fp = dict(size=9)
-    at = AnchoredText(text, loc=loc, prop=fp)
-    at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+    at = AnchoredText(text, loc=loc, prop=dict(size=9), frameon=True,
+                      bbox_to_anchor=(0., 1.),
+                      bbox_transform=ax.transAxes)
+
     ax.add_artist(at)
     return at
 
@@ -293,7 +296,7 @@ def send_message(message):
 def set_global_configs(configs_dict):
     global SOURCE_URL
     global STOCK_FILE
-
+    global STOCK_NAME
     global WEEKDAYS_EXECUTION
     global BEGIN_HOUR_EXECUTION
     global END_HOUR_EXECUTION
@@ -315,6 +318,7 @@ def set_global_configs(configs_dict):
     global READ_LAST_LINES_STOCK_FILE
 
     SOURCE_URL = configs_dict['source_url']
+    STOCK_NAME = configs_dict['stock_name']
 
     WEEKDAYS_EXECUTION = configs_dict['weekdays_execution']
     WEEKDAYS_EXECUTION = WEEKDAYS_EXECUTION.split('#')[0]
@@ -355,19 +359,6 @@ def check_execution(weekdays_execution, begin_hour_execution, end_hour_execution
     return check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution)
 
 
-def clear():
-    index = -10
-    del BOLLINGER_SELL[:index]
-    del BOLLINGER_BUY[:index]
-    del BOLLINGER_INDEX_SELL[:index]
-    del BOLLINGER_INDEX_BUY[:index]
-    del BOLLINGER_SIGNAL[:index]
-
-
-from pathlib import Path
-from collections import deque
-
-
 def get_stock_list(stock_file, last_lines):
     stock_prices = []
     stock_date = []
@@ -375,20 +366,17 @@ def get_stock_list(stock_file, last_lines):
 
     if helper.file_exists(stock_file):
         stock_record = helper.read_last_lines_file(stock_file, last_lines)
-        stock_prices = [p.split(';')[0] for p in stock_record]
+        stock_prices = [float(p.split(';')[0]) for p in stock_record]
         stock_time = [p.split(';')[2] for p in stock_record]
 
     return stock_prices, stock_date, stock_time
 
 
 def main():
-    df = pd.read_csv(STOCK_FILE, sep=';', names=['Stock', 'Date', 'Time'])
+    stock_prices, _, stock_time = get_stock_list(STOCK_FILE, READ_LAST_LINES_STOCK_FILE)
 
-    stock_prices = df['Stock']
-    # tock_date = df['Date']
-    stock_time = df['Time']
-
-    #stock_prices, _, stock_time = get_stock_list(STOCK_FILE, READ_LAST_LINES_STOCK_FILE)
+    stock_prices = pd.Series(stock_prices)
+    stock_time = pd.Series(stock_time)
 
     upper_band, lower_band = calc_bollinger_bands(stock_prices, BOLLINGER_CALCULATION_WINDOW,
                                                   BOLLINGER_STANDARD_DEVIATION)
@@ -400,7 +388,7 @@ def main():
     if SHOW_MAIN_CHART:
 
         plot_main_chart(axes, stock_prices, stock_time, X_AXIS_VIEW_LIMIT)
-        plot_max_min_price_chart(axes, stock_prices.min(), stock_prices.max(), stock_prices.mean())
+        plot_summary_price_chart(axes, stock_prices)
 
         if upper_band is not None or lower_band is not None:
 
@@ -413,7 +401,11 @@ def main():
             plot_line_chart(axes, len(stock_prices), TARGET_PRICE_MINIMUM, 'blue', '.', 'Target Buy')
             plot_line_chart(axes, len(stock_prices), TARGET_PRICE_MAXIMUM, 'pink', '.', 'Target Sell')
 
-        plt.legend(loc='best')
+        plt.suptitle(STOCK_NAME)
+        # plt.legend(loc='best', fontsize=9)
+
+        plt.legend(bbox_to_anchor=(0., -.2, 1., .102), loc='upper left', ncol=5, mode="expand", borderaxespad=0.,
+                   fontsize=9)
         # plt.show()
         plt.pause(1)
 
@@ -424,8 +416,6 @@ def main():
 
     if SEND_NOTIFICATION_CROSS_TARGET_PRICES:
         notify_cross_target_limits(float(stock_prices[-1:]), TARGET_PRICE_MINIMUM, TARGET_PRICE_MAXIMUM)
-
-    clear()
 
 
 while True:
