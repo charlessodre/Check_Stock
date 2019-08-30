@@ -1,7 +1,8 @@
 # Create by: Charles Sodré (https://github.com/charlessodre/Check_Stock)
 # Date: 08/2019
 # Based in course of Saulo Catharino: https://github.com/saulocatharino/machine_learning_for_traders
-#
+# Avalia uma ação para Compra e/ou Venda e envia uma notificação pelo Telegram caso o limiar de preço definido seja atingindo.
+# Também notifica quando o valor da ação cruza as bandas de Bollinger.
 
 # Library Import
 import requests
