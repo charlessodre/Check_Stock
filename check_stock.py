@@ -26,7 +26,7 @@ SOURCE_URL = None  # 'https://br.investing.com/equities/usiminas-pna'
 STOCK_FILE = None
 STOCK_NAME = None
 
-INTERVAL_BETEWEEN_RUNS = None  # 20
+INTERVAL_BETWEEN_RUNS = None  # 20
 READ_LAST_LINES_STOCK_FILE = None  # 50
 
 # [0 (Sunday), 1 (Monday) ... 6 (Saturday)].
@@ -315,7 +315,7 @@ def set_global_configs(configs_dict):
     global SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS
     global SEND_NOTIFICATION_CROSS_TARGET_PRICES
 
-    global INTERVAL_BETEWEEN_RUNS
+    global INTERVAL_BETWEEN_RUNS
     global READ_LAST_LINES_STOCK_FILE
 
     SOURCE_URL = configs_dict['source_url']
@@ -339,7 +339,7 @@ def set_global_configs(configs_dict):
     SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS = bool(int(configs_dict['send_notification_cross_bollinger_bands']))
     SEND_NOTIFICATION_CROSS_TARGET_PRICES = bool(int(configs_dict['send_notification_cross_target_prices']))
 
-    INTERVAL_BETEWEEN_RUNS = int(configs_dict['interval_beteween_runs'])
+    INTERVAL_BETWEEN_RUNS = int(configs_dict['interval_between_runs_seconds'])
 
     READ_LAST_LINES_STOCK_FILE = int(configs_dict['read_last_lines_stock_file'])
 
@@ -459,4 +459,4 @@ while True:
             exit('FATAL ERROR MAIN')
 
     print('Success.', helper.get_current_date_hour_str())
-    helper.set_sleep(INTERVAL_BETEWEEN_RUNS - 1)
+    helper.set_sleep(INTERVAL_BETWEEN_RUNS - 1)

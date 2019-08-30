@@ -15,6 +15,6 @@ show_bollinger_bands_chart=1
 show_target_prices_chart=1
 send_notification_cross_bollinger_bands=1
 send_notification_cross_target_prices=0
-interval_beteween_runs=20
+interval_between_runs_seconds=20
 
 
