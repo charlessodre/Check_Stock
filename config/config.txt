@@ -7,14 +7,14 @@ begin_hour_execution=9
 end_hour_execution=17
 bollinger_calculation_window=40
 bollinger_standard_deviation=2
-target_price_minimum=7.3
-target_price_maximum=7.6
+target_price_minimum=7.7
+target_price_maximum=8
 x_axis_view_limit=40
 show_main_chart=1
 show_bollinger_bands_chart=1
 show_target_prices_chart=1
 send_notification_cross_bollinger_bands=1
-send_notification_cross_target_prices=0
+send_notification_cross_target_prices=1
 interval_between_runs_seconds=20
 
 

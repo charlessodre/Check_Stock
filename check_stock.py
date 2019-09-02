@@ -143,8 +143,9 @@ def plot_main_chart(ax, stock_list, time, window):
 
 
 def plot_bollinger_bands_chart(ax, upper_band, lower_band):
-    ax.plot(upper_band, '--', color="green", alpha=.2, label='BB Up')
-    ax.plot(lower_band, '--', color="red", alpha=.2, label='BB Down')
+    if upper_band is not None or lower_band is not None:
+        ax.plot(upper_band, '--', color="green", alpha=.2, label='BB Up')
+        ax.plot(lower_band, '--', color="red", alpha=.2, label='BB Down')
 
 
 def plot_line_chart(ax, list_size, value, color_name, marker="*", legend=None, alpha=0.5):
@@ -177,45 +178,47 @@ def detect_cross_bollinger_bands(stock_list, window, lower_bands, upper_bands):
     sell_index_list = []
     signal_list = []
 
-    for index in range(len(stock_list) - (window * 2), len(stock_list)):
+    if lower_bands is not None or upper_bands is not None:
 
-        if len(stock_list) > window * 2:
-            stock_list_hist.append(float(stock_list[index]))
-            lower_bands_hist.append(float(lower_bands[index]))
-            upper_bands_hist.append(float(upper_bands[index]))
+        for index in range(len(stock_list) - (window * 2), len(stock_list)):
 
-            if len(signal_list) > 1:
+            if len(stock_list) > window * 2:
+                stock_list_hist.append(float(stock_list[index]))
+                lower_bands_hist.append(float(lower_bands[index]))
+                upper_bands_hist.append(float(upper_bands[index]))
 
-                stock_price = float(stock_list[index])
+                if len(signal_list) > 1:
 
-                current_price = stock_list_hist[-1:]
-                current_lower_band = lower_bands_hist[-1:]
-                current_upper_band = upper_bands_hist[-1:]
+                    stock_price = float(stock_list[index])
 
-                last_price = stock_list_hist[-2:-1]
-                last_lower_band = lower_bands_hist[-2:-1]
-                last_upper_band = upper_bands_hist[-2:-1]
+                    current_price = stock_list_hist[-1:]
+                    current_lower_band = lower_bands_hist[-1:]
+                    current_upper_band = upper_bands_hist[-1:]
 
-                if current_price > current_lower_band and last_price <= last_lower_band:
-                    buy_list.append(stock_price)
-                    buy_index_list.append(index)
-                    # 'Buy'
-                    signal_list.append(1)
+                    last_price = stock_list_hist[-2:-1]
+                    last_lower_band = lower_bands_hist[-2:-1]
+                    last_upper_band = upper_bands_hist[-2:-1]
+
+                    if current_price > current_lower_band and last_price <= last_lower_band:
+                        buy_list.append(stock_price)
+                        buy_index_list.append(index)
+                        # 'Buy'
+                        signal_list.append(1)
 
 
-                elif current_price < current_upper_band and last_price >= last_upper_band:
-                    sell_list.append(stock_price)
-                    sell_index_list.append(index)
-                    # 'Sell'
-                    signal_list.append(2)
+                    elif current_price < current_upper_band and last_price >= last_upper_band:
+                        sell_list.append(stock_price)
+                        sell_index_list.append(index)
+                        # 'Sell'
+                        signal_list.append(2)
+
+                    else:
+                        # 'Hold'
+                        signal_list.append(0)
 
                 else:
                     # 'Hold'
                     signal_list.append(0)
-
-            else:
-                # 'Hold'
-                signal_list.append(0)
 
     return buy_list, sell_list, buy_index_list, sell_index_list, signal_list
 
@@ -263,35 +266,30 @@ def notify_cross_bollinger_bands(current_price, current_lower_band, current_uppe
 
     if signal is not None:
         message = '{}. Price: {}. Time: {}'.format(signal, current_price, helper.get_current_date_hour_str())
+        send_message(message)
 
-        telegram_send.send(messages=[message])
 
-
-def notify_cross_target_limits(current_price, target_min, target_max):
+def notify_cross_target_limits(last_price, current_price, target_min, target_max):
     signal = None
 
-    if current_price >= target_min:
+    if current_price <= target_min and current_price < last_price:
 
         signal = 'Minimum price reached'
 
-    elif current_price <= target_max:
+    elif current_price >= target_max and current_price > last_price:
 
         signal = 'Maximum price reached'
 
     if signal is not None:
         message = '{}. Price: {}. Time: {}'.format(signal, current_price, helper.get_current_date_hour_str())
-
-    telegram_send.send(messages=[message])
+        send_message(message)
 
 
 def send_message(message):
-    msg_list = []
-
-    msg_list.append("mensagem: " + helper.get_current_date_hour_str())
-
-    for msg in msg_list:
+    if type(message) is list:
+        telegram_send.send(messages=message)
+    else:
         telegram_send.send(messages=[message])
-        # print(msg)
 
 
 def set_global_configs(configs_dict):
@@ -382,28 +380,24 @@ def main():
     upper_band, lower_band = calc_bollinger_bands(stock_prices, BOLLINGER_CALCULATION_WINDOW,
                                                   BOLLINGER_STANDARD_DEVIATION)
 
-    if upper_band is not None or lower_band is not None:
-        BOLLINGER_BUY, BOLLINGER_SELL, BOLLINGER_INDEX_BUY, BOLLINGER_INDEX_SELL, BOLLINGER_SIGNAL = detect_cross_bollinger_bands(
-            stock_prices, X_AXIS_VIEW_LIMIT, lower_band, upper_band)
+    BOLLINGER_BUY, BOLLINGER_SELL, BOLLINGER_INDEX_BUY, BOLLINGER_INDEX_SELL, BOLLINGER_SIGNAL = detect_cross_bollinger_bands(
+        stock_prices, X_AXIS_VIEW_LIMIT, lower_band, upper_band)
 
     if SHOW_MAIN_CHART:
 
         plot_main_chart(axes, stock_prices, stock_time, X_AXIS_VIEW_LIMIT)
         plot_summary_price_chart(axes, stock_prices)
 
-        if upper_band is not None or lower_band is not None:
-
-            if SHOW_BOLLINGER_BANDS_CHART:
-                plot_bollinger_bands_chart(axes, lower_band, upper_band)
-                plot_signals_bollinger_bands_chart(axes, BOLLINGER_BUY, BOLLINGER_SELL, BOLLINGER_INDEX_BUY,
-                                                   BOLLINGER_INDEX_SELL)
+        if SHOW_BOLLINGER_BANDS_CHART:
+            plot_bollinger_bands_chart(axes, lower_band, upper_band)
+            plot_signals_bollinger_bands_chart(axes, BOLLINGER_BUY, BOLLINGER_SELL, BOLLINGER_INDEX_BUY,
+                                               BOLLINGER_INDEX_SELL)
 
         if SHOW_TARGET_PRICES_CHART:
             plot_line_chart(axes, len(stock_prices), TARGET_PRICE_MINIMUM, 'blue', '.', 'Target Buy')
             plot_line_chart(axes, len(stock_prices), TARGET_PRICE_MAXIMUM, 'pink', '.', 'Target Sell')
 
         plt.suptitle(STOCK_NAME)
-        # plt.legend(loc='best', fontsize=9)
 
         plt.legend(bbox_to_anchor=(0., -.2, 1., .102), loc='upper left', ncol=5, mode="expand", borderaxespad=0.,
                    fontsize=9)
@@ -411,12 +405,14 @@ def main():
         plt.pause(1)
 
     if SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS:
-        notify_cross_bollinger_bands(float(stock_prices[-1:]), float(lower_band[-1:]), float(upper_band[-1:]),
-                                     float(stock_prices[-2:-1]),
-                                     float(lower_band[-2:-1]), float(upper_band[-2:-1]))
+        if lower_band is not None or upper_band is not None:
+            notify_cross_bollinger_bands(float(stock_prices[-1:]), float(lower_band[-1:]), float(upper_band[-1:]),
+                                         float(stock_prices[-2:-1]),
+                                         float(lower_band[-2:-1]), float(upper_band[-2:-1]))
 
     if SEND_NOTIFICATION_CROSS_TARGET_PRICES:
-        notify_cross_target_limits(float(stock_prices[-1:]), TARGET_PRICE_MINIMUM, TARGET_PRICE_MAXIMUM)
+        notify_cross_target_limits(float(stock_prices[-2:-1]), float(stock_prices[-1:]), TARGET_PRICE_MINIMUM,
+                                   TARGET_PRICE_MAXIMUM)
 
 
 while True:
@@ -427,7 +423,8 @@ while True:
         msg = "FATAL ERROR SETTINGS. Error loading settings. Time: {}. Exception: {}".format(
             helper.get_current_date_hour_str(), e)
         print(msg)
-        logging.critical(msg)
+        # logging.critical(msg)
+        logging.exception(msg)
         send_message(msg)
         exit('FATAL ERROR SETTINGS')
 
@@ -444,6 +441,7 @@ while True:
     try:
         main()
         NUM_ERRORS_MAIN = 0
+
     except Exception as e:
         msg = "Error main function. Time: {}. Exception: {}".format(helper.get_current_date_hour_str(), e)
         print(msg)
@@ -451,10 +449,11 @@ while True:
 
         helper.set_sleep(60)
         NUM_ERRORS_MAIN += 1
-        if NUM_ERRORS_MAIN > 5:
+        if NUM_ERRORS_MAIN == 3:
             msg = "FATAL ERROR MAIN. " + msg
             print(msg)
-            logging.critical(msg)
+            # logging.critical(msg)
+            logging.exception(msg)
             send_message(msg)
             exit('FATAL ERROR MAIN')
 
