@@ -18,6 +18,14 @@ import helper
 # https://github.com/rahiel/telegram-send
 import telegram_send
 
+from enum import Enum
+
+
+class MarketStatus(Enum):
+    OPEN = 1
+    CLOSED = 2
+
+
 logging.basicConfig(filename=helper.path_join('log', 'application_log.log'), level=logging.ERROR)
 
 CONFIG_FILE_PATH = helper.path_join('config', 'config.txt')
@@ -33,6 +41,9 @@ READ_LAST_LINES_STOCK_FILE = None  # 50
 WEEKDAYS_EXECUTION = None  # [1, 2, 3, 4, 5]
 BEGIN_HOUR_EXECUTION = None  # 9
 END_HOUR_EXECUTION = None  # 17
+# This option overrides "begin_hour_execution" and  "end_hour_execution"
+EXECUTION_BY_MARKET_STATUS = True
+MARKET_STATUS = MarketStatus.CLOSED
 
 BOLLINGER_CALCULATION_WINDOW = None  # 40
 BOLLINGER_STANDARD_DEVIATION = None  # 2
@@ -48,6 +59,7 @@ SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS = True
 SEND_NOTIFICATION_CROSS_TARGET_PRICES = False
 
 NUM_ERRORS_MAIN = 0
+NUM_ERRORS_GET_PRICE = 0
 
 BOLLINGER_SELL = []
 BOLLINGER_BUY = []
@@ -73,8 +85,7 @@ def get_configs(config_file_path):
     return settings
 
 
-def get_last_stock_price_ADVN(source_url):
-    # SOURCE_URL = 'https://br.investing.com/equities/usiminas-pna'
+def get_beautiful_soup(source_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36'}
     con = requests.get(source_url, headers=headers)
@@ -85,17 +96,44 @@ def get_last_stock_price_ADVN(source_url):
 
     soup = BeautifulSoup(con.content, "html.parser")
 
+    return soup
+
+
+def get_last_stock_price_ADVN(soup):
     main_div = soup.find('div', {'id': 'quotes_summary_current_data'})
 
     sotck_price_tag = main_div.find('span', {'id': 'last_last'})
 
     stock_price = sotck_price_tag.text
+    print(stock_price)
+
+    if len(stock_price) > 4:  # TODO:  Teste
+        logging.error('Valor Antes: ' + stock_price)  # TODO: Teste
 
     stock_price = stock_price.replace('.', '').replace(',', '.')
 
+    print(stock_price)  # TODO:  Teste
+
     stock_price = float(stock_price)
 
+    print(stock_price)  # TODO:  Teste
+
     return stock_price
+
+
+def get_status_market_ADVN(soup):
+    market_status = MarketStatus.CLOSED
+
+    main_div = soup.find('div', {'id': 'quotes_summary_current_data'})
+
+    status_div = main_div.find('div', {'class': 'bottom lighterGrayFont arial_11'})
+
+    status_text = status_div.text
+
+    if 'Fechado' not in status_text:
+        market_status = MarketStatus.OPEN
+
+    return market_status
 
 
 def save_stock_price(stock_file, price):
@@ -240,16 +278,22 @@ def plot_summary_price_chart(ax, stock_list):
                                                                    round(stock_list.mean(), 2),
                                                                    round(stock_list.std(), 2))
 
-    add_anchored_text_chart(ax, text, loc='lower left')
+    add_anchored_text_chart(ax, text, 'lower left', (0., 1.))
 
 
-def add_anchored_text_chart(ax, text, loc=2):
+def add_anchored_text_chart(ax, text, loc, bbox_anchor):
     at = AnchoredText(text, loc=loc, prop=dict(size=9), frameon=True,
-                      bbox_to_anchor=(0., 1.),
+                      bbox_to_anchor=bbox_anchor,
                       bbox_transform=ax.transAxes)
 
     ax.add_artist(at)
     return at
+
+
+def plot_market_status(ax, market_status):
+    text = "Market Status: {}".format(market_status.name)
+
+    add_anchored_text_chart(ax, text, 'lower left', (0.3, 1.))
 
 
 def notify_cross_bollinger_bands(current_price, current_lower_band, current_upper_band, last_price, last_lower_band,
@@ -299,6 +343,7 @@ def set_global_configs(configs_dict):
     global WEEKDAYS_EXECUTION
     global BEGIN_HOUR_EXECUTION
     global END_HOUR_EXECUTION
+    global EXECUTION_BY_MARKET_STATUS
 
     global BOLLINGER_CALCULATION_WINDOW
     global BOLLINGER_STANDARD_DEVIATION
@@ -323,23 +368,27 @@ def set_global_configs(configs_dict):
     WEEKDAYS_EXECUTION = WEEKDAYS_EXECUTION.split('#')[0]
     WEEKDAYS_EXECUTION = eval(WEEKDAYS_EXECUTION)
 
-    BEGIN_HOUR_EXECUTION = int(configs_dict['begin_hour_execution'])
-    END_HOUR_EXECUTION = int(configs_dict['end_hour_execution'])
-    BOLLINGER_CALCULATION_WINDOW = int(configs_dict['bollinger_calculation_window'])
-    BOLLINGER_STANDARD_DEVIATION = float(configs_dict['bollinger_standard_deviation'])
-    X_AXIS_VIEW_LIMIT = int(configs_dict['x_axis_view_limit'])
-    TARGET_PRICE_MINIMUM = float(configs_dict['target_price_minimum'])
-    TARGET_PRICE_MAXIMUM = float(configs_dict['target_price_maximum'])
+    BEGIN_HOUR_EXECUTION = int(configs_dict['begin_hour_execution'].split('#')[0])
+    END_HOUR_EXECUTION = int(configs_dict['end_hour_execution'].split('#')[0])
+    EXECUTION_BY_MARKET_STATUS = bool(int(configs_dict['execution_by_market_status'].split('#')[0]))
 
-    SHOW_MAIN_CHART = bool(int(configs_dict['show_main_chart']))
-    SHOW_BOLLINGER_BANDS_CHART = bool(int(configs_dict['show_bollinger_bands_chart']))
-    SHOW_TARGET_PRICES_CHART = bool(int(configs_dict['show_target_prices_chart']))
-    SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS = bool(int(configs_dict['send_notification_cross_bollinger_bands']))
-    SEND_NOTIFICATION_CROSS_TARGET_PRICES = bool(int(configs_dict['send_notification_cross_target_prices']))
+    BOLLINGER_CALCULATION_WINDOW = int(configs_dict['bollinger_calculation_window'].split('#')[0])
+    BOLLINGER_STANDARD_DEVIATION = float(configs_dict['bollinger_standard_deviation'].split('#')[0])
+    X_AXIS_VIEW_LIMIT = int(configs_dict['x_axis_view_limit'].split('#')[0])
+    TARGET_PRICE_MINIMUM = float(configs_dict['target_price_minimum'].split('#')[0])
+    TARGET_PRICE_MAXIMUM = float(configs_dict['target_price_maximum'].split('#')[0])
 
-    INTERVAL_BETWEEN_RUNS = int(configs_dict['interval_between_runs_seconds'])
+    SHOW_MAIN_CHART = bool(int(configs_dict['show_main_chart'].split('#')[0]))
+    SHOW_BOLLINGER_BANDS_CHART = bool(int(configs_dict['show_bollinger_bands_chart'].split('#')[0]))
+    SHOW_TARGET_PRICES_CHART = bool(int(configs_dict['show_target_prices_chart'].split('#')[0]))
+    SEND_NOTIFICATION_CROSS_BOLLINGER_BANDS = bool(
+        int(configs_dict['send_notification_cross_bollinger_bands'].split('#')[0]))
+    SEND_NOTIFICATION_CROSS_TARGET_PRICES = bool(
+        int(configs_dict['send_notification_cross_target_prices'].split('#')[0]))
 
-    READ_LAST_LINES_STOCK_FILE = int(configs_dict['read_last_lines_stock_file'])
+    INTERVAL_BETWEEN_RUNS = int(configs_dict['interval_between_runs_seconds'].split('#')[0])
+
+    READ_LAST_LINES_STOCK_FILE = int(configs_dict['read_last_lines_stock_file'].split('#')[0])
 
     stock_filename = configs_dict['stock_filename']
     STOCK_FILE = helper.path_join(BASE_PATH, stock_filename)
@@ -349,13 +398,20 @@ def load_configs(config_file_path):
     set_global_configs(get_configs(config_file_path))
 
 
-def get_stock_history(source_url, file_stock):
-    current_price = get_last_stock_price_ADVN(source_url)
+def get_stock_history(soup, file_stock):
+    current_price = get_last_stock_price_ADVN(soup)
     save_stock_price(file_stock, current_price)
 
 
-def check_execution(weekdays_execution, begin_hour_execution, end_hour_execution):
-    return check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution, end_hour_execution)
+def check_execution(weekdays_execution, begin_hour_execution, end_hour_execution, execution_by_market_status,
+                    market_status):
+    exec = False
+    if execution_by_market_status:
+        exec = (market_status == MarketStatus.OPEN)
+    else:
+        exec = check_execution_day(weekdays_execution) and check_execution_hour(begin_hour_execution,
+                                                                                end_hour_execution)
+    return exec
 
 
 def get_stock_list(stock_file, last_lines):
@@ -387,6 +443,7 @@ def main():
 
         plot_main_chart(axes, stock_prices, stock_time, X_AXIS_VIEW_LIMIT)
         plot_summary_price_chart(axes, stock_prices)
+        plot_market_status(axes, MARKET_STATUS)
 
         if SHOW_BOLLINGER_BANDS_CHART:
             plot_bollinger_bands_chart(axes, lower_band, upper_band)
@@ -429,14 +486,27 @@ while True:
         exit('FATAL ERROR SETTINGS')
 
     try:
-        if check_execution(WEEKDAYS_EXECUTION, BEGIN_HOUR_EXECUTION, END_HOUR_EXECUTION):
-            get_stock_history(SOURCE_URL, STOCK_FILE)
+        soup = get_beautiful_soup(SOURCE_URL)
+
+        MARKET_STATUS = get_status_market_ADVN(soup)
+
+        if check_execution(WEEKDAYS_EXECUTION, BEGIN_HOUR_EXECUTION, END_HOUR_EXECUTION, EXECUTION_BY_MARKET_STATUS,
+                           MARKET_STATUS):
+            get_stock_history(soup, STOCK_FILE)
+
     except Exception as e:
         msg = "Error get stock. Time: {}. Exception: {}".format(helper.get_current_date_hour_str(), e)
         print(msg)
         logging.error(msg)
-
         helper.set_sleep(60)
+        NUM_ERRORS_GET_PRICE += 1
+        if NUM_ERRORS_GET_PRICE == 10:
+            msg = "FATAL ERROR GET PRICE. " + msg
+            print(msg)
+            # logging.critical(msg)
+            logging.exception(msg)
+            send_message(msg)
+            exit('FATAL ERROR GET PRICE')
 
     try:
         main()
