@@ -44,6 +44,9 @@ END_HOUR_EXECUTION = None  # 17
 # This option overrides "begin_hour_execution" and  "end_hour_execution"
 EXECUTION_BY_MARKET_STATUS = True
 MARKET_STATUS = MarketStatus.CLOSED
+PREVIOUS_CLOSING_PRICE = 0
+OPEN_PRICE = 0
+PRICE_VARIATION = 0
 
 BOLLINGER_CALCULATION_WINDOW = None  # 40
 BOLLINGER_STANDARD_DEVIATION = None  # 2
@@ -134,6 +137,34 @@ def get_status_market_ADVN(soup):
         market_status = MarketStatus.OPEN
 
     return market_status
+
+
+def get_prices_open_closing_ADVN(soup):
+    main_div = soup.find('div', {'id': 'quotes_summary_secondary_data'})
+
+    previous_closing_price = main_div.find_all('span')[1].text
+    previous_closing_price = previous_closing_price.replace('.', '').replace(',', '.')
+    previous_closing_price = float(previous_closing_price)
+
+    open_price = main_div.find_all('span')[3].text
+    open_price = open_price.replace('.', '').replace(',', '.')
+    open_price = float(open_price)
+
+    return previous_closing_price, open_price
+
+
+def get_price_variation_ADVN(soup):
+    main_div = soup.find('div', {'id': 'quotes_summary_current_data'})
+
+    variation_div = main_div.find('div', {'class': 'top bold inlineblock'})
+
+    value_variation = variation_div.find_all('span')[3].text
+
+    value_variation = value_variation.replace('%', '').replace('.', '').replace(',', '.')
+
+    value_variation = float(value_variation)
+
+    return value_variation
 
 
 def save_stock_price(stock_file, price):
@@ -296,6 +327,18 @@ def plot_market_status(ax, market_status):
     add_anchored_text_chart(ax, text, 'lower left', (0.3, 1.))
 
 
+def plot_open_previous_closing_price(ax, open_price, previous_closing_price):
+    text = "Previous Closing Price: {} | Open Price: {}".format(open_price, previous_closing_price)
+
+    add_anchored_text_chart(ax, text, 'lower left', (0.45, 1.))
+
+
+def plot_price_variation(ax, price_variation):
+    text = "Var: {}%".format(price_variation)
+
+    add_anchored_text_chart(ax, text, 'lower left', (0.72, 1.))
+
+
 def notify_cross_bollinger_bands(current_price, current_lower_band, current_upper_band, last_price, last_lower_band,
                                  last_upper_band):
     signal = None
@@ -444,6 +487,8 @@ def main():
         plot_main_chart(axes, stock_prices, stock_time, X_AXIS_VIEW_LIMIT)
         plot_summary_price_chart(axes, stock_prices)
         plot_market_status(axes, MARKET_STATUS)
+        plot_open_previous_closing_price(axes, PREVIOUS_CLOSING_PRICE, OPEN_PRICE)
+        plot_price_variation(axes, PRICE_VARIATION)
 
         if SHOW_BOLLINGER_BANDS_CHART:
             plot_bollinger_bands_chart(axes, lower_band, upper_band)
@@ -493,6 +538,9 @@ while True:
         if check_execution(WEEKDAYS_EXECUTION, BEGIN_HOUR_EXECUTION, END_HOUR_EXECUTION, EXECUTION_BY_MARKET_STATUS,
                            MARKET_STATUS):
             get_stock_history(soup, STOCK_FILE)
+            PREVIOUS_CLOSING_PRICE, OPEN_PRICE = get_prices_open_closing_ADVN(soup)
+            PRICE_VARIATION = get_price_variation_ADVN(soup)
+
 
     except Exception as e:
         msg = "Error get stock. Time: {}. Exception: {}".format(helper.get_current_date_hour_str(), e)
