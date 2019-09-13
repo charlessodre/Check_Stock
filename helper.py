@@ -319,3 +319,12 @@ def set_sleep(seconds):
     :param seconds:
     """
     time.sleep(seconds)
+
+
+def change_decimal_separator_BR(string):
+    if ',' in string:
+        string = str(string).replace(',', 'v')
+        string = string.replace('.', ',')
+        string = string.replace('v', '.')
+
+    return string

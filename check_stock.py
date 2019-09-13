@@ -108,14 +108,10 @@ def get_last_stock_price_ADVN(soup):
     sotck_price_tag = main_div.find('span', {'id': 'last_last'})
 
     stock_price = sotck_price_tag.text
-    print(stock_price)
-
-    if len(stock_price) > 4:  # TODO:  Teste
-        logging.error('Valor Antes: ' + stock_price)  # TODO: Teste
-
-    stock_price = stock_price.replace('.', '').replace(',', '.')
 
     print(stock_price)  # TODO:  Teste
+
+    stock_price = helper.change_decimal_separator_BR(stock_price)
 
     stock_price = float(stock_price)
 
@@ -143,11 +139,11 @@ def get_open_close_prices_ADVN(soup):
     main_div = soup.find('div', {'id': 'quotes_summary_secondary_data'})
 
     previous_close_price = main_div.find_all('span')[1].text
-    previous_close_price = previous_close_price.replace('.', '').replace(',', '.')
+    previous_close_price = helper.change_decimal_separator_BR(previous_close_price)
     previous_close_price = float(previous_close_price)
 
     open_price = main_div.find_all('span')[3].text
-    open_price = open_price.replace('.', '').replace(',', '.')
+    open_price = helper.change_decimal_separator_BR(open_price)
     open_price = float(open_price)
 
     return previous_close_price, open_price
@@ -160,7 +156,9 @@ def get_price_variation_ADVN(soup):
 
     value_variation = variation_div.find_all('span')[3].text
 
-    value_variation = value_variation.replace('%', '').replace('.', '').replace(',', '.')
+    value_variation = value_variation.replace('%', '')
+
+    value_variation = helper.change_decimal_separator_BR(value_variation)
 
     value_variation = float(value_variation)
 
@@ -322,21 +320,15 @@ def add_anchored_text_chart(ax, text, loc, bbox_anchor):
 
 
 def plot_market_status(ax, market_status):
-    text = "Market Status: {}".format(market_status.name)
+    text = "Market: {}".format(market_status.name)
 
     add_anchored_text_chart(ax, text, 'lower left', (0.3, 1.))
 
 
-def plot_open_previous_closing_price(ax, open_price, previous_close_price):
-    text = "Previous Close: {} | Open: {}".format(open_price, previous_close_price)
+def plot_open_previous_closing_price(ax, open_price, previous_close_price, current_price, price_variation):
+    text = "Previous Close: {} | Open: {} | Now: {} | Var: {}%".format(open_price, previous_close_price, current_price, price_variation)
 
-    add_anchored_text_chart(ax, text, 'lower left', (0.45, 1.))
-
-
-def plot_price_variation(ax, price_variation):
-    text = "Var: {}%".format(price_variation)
-
-    add_anchored_text_chart(ax, text, 'lower left', (0.65, 1.))
+    add_anchored_text_chart(ax, text, 'lower left', (0.40, 1.))
 
 
 def notify_cross_bollinger_bands(current_price, current_lower_band, current_upper_band, last_price, last_lower_band,
@@ -353,12 +345,12 @@ def notify_cross_bollinger_bands(current_price, current_lower_band, current_uppe
         signal = 'Bollinger Band Upper Reached - SELL'
 
     if signal is not None:
-        message = '{}.\nCurrent Price: {}\nPrevious\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
-                                                                                                          current_price,
-                                                                                                          previous_close_price,
-                                                                                                          open_price,
-                                                                                                          price_variation,
-                                                                                                          helper.get_current_date_hour_str())
+        message = '{}.\nCurrent Price: {}\nPrevious: {}\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
+                                                                                                              current_price,
+                                                                                                              previous_close_price,
+                                                                                                              open_price,
+                                                                                                              price_variation,
+                                                                                                              helper.get_current_date_hour_str())
         send_message(message)
 
 
@@ -375,12 +367,12 @@ def notify_cross_target_limits(last_price, current_price, target_min, target_max
         signal = 'Maximum price reached'
 
     if signal is not None:
-        message = '{}.\nCurrent Price: {}\nPrevious\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
-                                                                                                          current_price,
-                                                                                                          previous_closing_price,
-                                                                                                          open_price,
-                                                                                                          price_variation,
-                                                                                                          helper.get_current_date_hour_str())
+        message = '{}.\nCurrent Price: {}\nPrevious: {}\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
+                                                                                                              current_price,
+                                                                                                              previous_closing_price,
+                                                                                                              open_price,
+                                                                                                              price_variation,
+                                                                                                              helper.get_current_date_hour_str())
         send_message(message)
 
 
@@ -499,8 +491,7 @@ def main():
         plot_main_chart(axes, stock_prices, stock_time, X_AXIS_VIEW_LIMIT)
         plot_summary_price_chart(axes, stock_prices)
         plot_market_status(axes, MARKET_STATUS)
-        plot_open_previous_closing_price(axes, PREVIOUS_CLOSE_PRICE, OPEN_PRICE)
-        plot_price_variation(axes, PRICE_VARIATION)
+        plot_open_previous_closing_price(axes, PREVIOUS_CLOSE_PRICE, OPEN_PRICE, float(stock_prices[-1:]), PRICE_VARIATION)
 
         if SHOW_BOLLINGER_BANDS_CHART:
             plot_bollinger_bands_chart(axes, lower_band, upper_band)
