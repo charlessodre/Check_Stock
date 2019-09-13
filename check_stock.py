@@ -345,7 +345,7 @@ def notify_cross_bollinger_bands(current_price, current_lower_band, current_uppe
         signal = 'Bollinger Band Upper Reached - SELL'
 
     if signal is not None:
-        message = '{}.\nCurrent Price: {}\nPrevious: {}\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
+        message = '{}.\nCurrent Price: {}\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
                                                                                                               current_price,
                                                                                                               previous_close_price,
                                                                                                               open_price,
@@ -367,7 +367,7 @@ def notify_cross_target_limits(last_price, current_price, target_min, target_max
         signal = 'Maximum price reached'
 
     if signal is not None:
-        message = '{}.\nCurrent Price: {}\nPrevious: {}\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
+        message = '{}.\nCurrent Price: {}\nClose: {}\nOpen: {}\nVariation:{}%\nTime: {}'.format(signal,
                                                                                                               current_price,
                                                                                                               previous_closing_price,
                                                                                                               open_price,
