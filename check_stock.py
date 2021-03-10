@@ -4,6 +4,7 @@
 # Avalia uma ação para Compra e/ou Venda e envia uma notificação pelo Telegram caso o limiar de preço definido seja atingindo.
 # Também notifica quando o valor da ação cruza as bandas de Bollinger.
 
+
 # Library Import
 import requests
 from bs4 import BeautifulSoup
@@ -136,13 +137,14 @@ def get_status_market_ADVN(soup):
 
 
 def get_open_close_prices_ADVN(soup):
-    main_div = soup.find('div', {'id': 'quotes_summary_secondary_data'})
 
-    previous_close_price = main_div.find_all('span')[1].text
+    main_div = soup.find('div', {'class': 'clear overviewDataTable overviewDataTableWithTooltip'})
+
+    previous_close_price = main_div.find_all('span', {'class': 'float_lang_base_2 bold'})[0].text
     previous_close_price = helper.change_decimal_separator_BR(previous_close_price)
     previous_close_price = float(previous_close_price)
 
-    open_price = main_div.find_all('span')[3].text
+    open_price = main_div.find_all('span', {'class': 'float_lang_base_2 bold'})[3].text
     open_price = helper.change_decimal_separator_BR(open_price)
     open_price = float(open_price)
 
